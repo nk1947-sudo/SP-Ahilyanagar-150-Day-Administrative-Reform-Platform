@@ -42,7 +42,15 @@ export default function AIAssistant() {
   // Fetch conversations
   const { data: conversations = [], isLoading: conversationsLoading, refetch: refetchConversations } = useQuery({
     queryKey: ["/api/chat/conversations"],
-    queryFn: () => fetch("/api/chat/conversations").then(res => res.json())
+    queryFn: async () => {
+      const res = await fetch("/api/chat/conversations");
+      if (!res.ok) {
+        if (res.status === 401) return [];
+        throw new Error('Failed to fetch conversations');
+      }
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    }
   });
 
   // Fetch messages for selected conversation

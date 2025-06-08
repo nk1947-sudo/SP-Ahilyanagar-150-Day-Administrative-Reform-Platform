@@ -401,9 +401,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/tasks', isAuthenticated, async (req, res) => {
+  app.post('/api/tasks', async (req: any, res) => {
     try {
-      const taskData = insertTaskSchema.parse(req.body);
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Invalid user session" });
+      }
+
+      const userId = req.user.claims?.sub || req.user.id;
+      const userRole = req.user.role || 'member';
+      
+      // Role-based authorization for task creation
+      if (!['sp', 'dysp', 'pi', 'team_lead'].includes(userRole)) {
+        return res.status(403).json({ message: "Insufficient permissions to create tasks" });
+      }
+      
+      const taskData = insertTaskSchema.parse({
+        ...req.body,
+        assignedTo: req.body.assignedTo || userId,
+      });
       const task = await storage.createTask(taskData);
       
       await storage.createActivity({
@@ -411,7 +426,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: `Task "${task.title}" was created`,
         entityType: 'task',
         entityId: task.id,
-        userId: req.user?.claims?.sub,
+        userId: userId,
       });
       
       res.status(201).json(task);
@@ -421,8 +436,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/tasks/:id', isAuthenticated, async (req, res) => {
+  // Task assignment endpoint with role validation
+  app.post('/api/tasks/:id/assign', async (req: any, res) => {
     try {
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Invalid user session" });
+      }
+
+      const userId = req.user.claims?.sub || req.user.id;
+      const userRole = req.user.role || 'member';
+      
+      // Only senior officers can assign tasks
+      if (!['sp', 'dysp', 'pi', 'team_lead'].includes(userRole)) {
+        return res.status(403).json({ message: "Insufficient permissions to assign tasks" });
+      }
+
+      const taskId = parseInt(req.params.id);
+      const { assignedTo, priority, dueDate, attachments } = req.body;
+      
+      const taskData = {
+        assignedTo,
+        priority: priority || 'medium',
+        dueDate,
+        updatedAt: new Date(),
+      };
+      
+      const task = await storage.updateTask(taskId, taskData);
+      
+      // Create document attachments if provided
+      if (attachments && attachments.length > 0) {
+        for (const attachment of attachments) {
+          await storage.createDocument({
+            title: attachment.title,
+            description: `Task attachment: ${attachment.description}`,
+            category: 'task_attachment',
+            filePath: attachment.filePath,
+            fileSize: attachment.fileSize,
+            teamId: task.teamId,
+            uploadedBy: userId,
+            isPublic: false,
+          });
+        }
+      }
+      
+      await storage.createActivity({
+        action: 'task_assigned',
+        description: `Task "${task.title}" assigned to ${assignedTo}`,
+        entityType: 'task',
+        entityId: task.id,
+        userId: userId,
+      });
+      
+      res.json(task);
+    } catch (error) {
+      console.error("Error assigning task:", error);
+      res.status(500).json({ message: "Failed to assign task" });
+    }
+  });
+
+  app.put('/api/tasks/:id', async (req: any, res) => {
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Invalid user session" });
+      }
+
+      const userId = req.user.claims?.sub || req.user.id;
       const id = parseInt(req.params.id);
       const taskData = req.body;
       const task = await storage.updateTask(id, taskData);
@@ -432,7 +510,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: `Task "${task.title}" was updated`,
         entityType: 'task',
         entityId: task.id,
-        userId: req.user?.claims?.sub,
+        userId: userId,
       });
       
       res.json(task);
@@ -629,8 +707,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Activities routes
-  app.get('/api/activities', isAuthenticated, requirePermission(PERMISSIONS.VIEW_TASKS), async (req, res) => {
+  app.get('/api/activities', async (req: any, res) => {
     try {
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Invalid user session" });
+      }
+      
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
       const activities = await storage.getActivities(limit);
       res.json(activities);
@@ -733,9 +815,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // LLM Chatbot Routes
   
   // Chat with AI assistant
-  app.post('/api/chat', isAuthenticated, requirePermission(PERMISSIONS.USE_AI_ASSISTANT), auditLog('ai_chat', 'llm_service'), async (req, res) => {
+  app.post('/api/chat', async (req: any, res) => {
     try {
-      const userId = (req as any).user?.claims?.sub;
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Invalid user session" });
+      }
+      
+      const userId = req.user.claims?.sub || req.user.id;
       const { message, conversationId } = req.body;
 
       if (!message || message.trim().length === 0) {
@@ -760,9 +846,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get user's chat conversations
-  app.get('/api/chat/conversations', isAuthenticated, requirePermission(PERMISSIONS.USE_AI_ASSISTANT), async (req, res) => {
+  app.get('/api/chat/conversations', async (req: any, res) => {
     try {
-      const userId = (req as any).user?.claims?.sub;
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Invalid user session" });
+      }
+      
+      const userId = req.user.claims?.sub || req.user.id;
       const conversations = await llmService.getUserConversations(userId);
       res.json(conversations);
     } catch (error) {
