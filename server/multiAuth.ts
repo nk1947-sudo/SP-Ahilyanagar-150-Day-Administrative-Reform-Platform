@@ -289,11 +289,5 @@ export async function setupMultiAuth(app: Express) {
     });
   });
 
-  // Get current user
-  app.get("/api/auth/user", (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    res.json(req.user);
-  });
+  // User endpoint is handled in routes.ts for unified authentication
 }

@@ -63,7 +63,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         req.login(user, (err: any) => {
           if (err) return res.status(500).json({ message: "Login failed" });
-          res.json(user);
+          
+          // Ensure session is saved
+          req.session.save((saveErr) => {
+            if (saveErr) console.error('Session save error:', saveErr);
+            res.json(user);
+          });
         });
       } else {
         res.status(401).json({ message: "Invalid credentials" });
@@ -155,7 +160,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       req.login(user, (err: any) => {
         if (err) return res.status(500).json({ message: "Login failed" });
-        res.json(user);
+        
+        // Ensure session is saved
+        req.session.save((saveErr) => {
+          if (saveErr) console.error('Session save error:', saveErr);
+          res.json(user);
+        });
       });
     } catch (error) {
       res.status(500).json({ message: "Verification error" });
@@ -301,11 +311,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  // Auth routes - unified user endpoint
+  app.get('/api/auth/user', async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user;
+      
+      // If user has Replit claims, fetch from database
+      if (user.claims && user.claims.sub) {
+        try {
+          const dbUser = await storage.getUser(user.claims.sub);
+          if (dbUser) {
+            return res.json(dbUser);
+          }
+        } catch (error) {
+          console.error("Error fetching Replit user from database:", error);
+        }
+      }
+      
+      // Return user session data directly
       res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);
