@@ -28,7 +28,10 @@ function Router() {
       <VisionHeader />
       <Switch>
         {isLoading || !isAuthenticated ? (
-          <Route path="/" component={Landing} />
+          <>
+            <Route path="/" component={Landing} />
+            <Route path="/auth" component={EnhancedAuth} />
+          </>
         ) : (
           <div className="flex">
             <NavigationSidebar />
