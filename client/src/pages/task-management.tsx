@@ -53,7 +53,10 @@ export default function TaskManagement() {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [teamFilter, setTeamFilter] = useState("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [assigningTask, setAssigningTask] = useState<Task | null>(null);
+  const [attachments, setAttachments] = useState<any[]>([]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -139,6 +142,40 @@ export default function TaskManagement() {
       toast({
         title: "Error",
         description: "Failed to update task",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const assignTaskMutation = useMutation({
+    mutationFn: async ({ taskId, assignmentData }: any) => {
+      await apiRequest("POST", `/api/tasks/${taskId}/assign`, assignmentData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      toast({
+        title: "Success",
+        description: "Task assigned successfully",
+      });
+      setIsAssignDialogOpen(false);
+      setAssigningTask(null);
+      setAttachments([]);
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to assign task",
         variant: "destructive",
       });
     },
@@ -571,6 +608,20 @@ export default function TaskManagement() {
                         </div>
 
                         <div className="flex items-center gap-2 ml-4">
+                          {/* Only show assign button for senior officers */}
+                          {user && ['sp', 'dysp', 'pi', 'team_lead'].includes(user.role || 'member') && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setAssigningTask(task);
+                                setIsAssignDialogOpen(true);
+                              }}
+                              className="text-blue-600 hover:text-blue-700"
+                            >
+                              <User className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -716,6 +767,118 @@ export default function TaskManagement() {
                 <DialogFooter>
                   <Button type="submit" disabled={updateTaskMutation.isPending}>
                     {updateTaskMutation.isPending ? "Updating..." : "Update Task"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+
+          {/* Task Assignment Dialog */}
+          <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
+            <DialogContent className="sm:max-w-[525px]">
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const assignmentData = {
+                  assignedTo: formData.get('assignedTo'),
+                  priority: formData.get('priority'),
+                  dueDate: formData.get('dueDate'),
+                  attachments: attachments
+                };
+                assignTaskMutation.mutate({ taskId: assigningTask?.id, assignmentData });
+              }}>
+                <DialogHeader>
+                  <DialogTitle>Assign Task</DialogTitle>
+                  <DialogDescription>
+                    Assign "{assigningTask?.title}" to a team member with optional document attachments.
+                  </DialogDescription>
+                </DialogHeader>
+                {assigningTask && (
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="assignedTo">Assign To (User ID)</Label>
+                      <Input 
+                        id="assignedTo" 
+                        name="assignedTo" 
+                        placeholder="Enter user ID or email" 
+                        required 
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="assign-priority">Priority</Label>
+                        <Select name="priority" defaultValue={assigningTask.priority}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="low">Low</SelectItem>
+                            <SelectItem value="medium">Medium</SelectItem>
+                            <SelectItem value="high">High</SelectItem>
+                            <SelectItem value="critical">Critical</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="assign-dueDate">Due Date</Label>
+                        <Input 
+                          id="assign-dueDate" 
+                          name="dueDate" 
+                          type="date" 
+                          defaultValue={assigningTask.dueDate || ""} 
+                        />
+                      </div>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Document Attachments</Label>
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            // Simulate file attachment
+                            const newAttachment = {
+                              title: `Attachment ${attachments.length + 1}`,
+                              description: "Task related document",
+                              filePath: `/documents/task_${assigningTask.id}_attachment_${Date.now()}.pdf`,
+                              fileSize: Math.floor(Math.random() * 1000000) + 100000
+                            };
+                            setAttachments([...attachments, newAttachment]);
+                          }}
+                          className="w-full"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Document Attachment
+                        </Button>
+                        {attachments.length > 0 && (
+                          <div className="mt-2 space-y-2">
+                            {attachments.map((attachment, index) => (
+                              <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                                <span className="text-sm">{attachment.title}</span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setAttachments(attachments.filter((_, i) => i !== index));
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        Only senior officers (SP, DYSP, PI, Team Lead) can assign tasks with attachments.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                <DialogFooter>
+                  <Button type="submit" disabled={assignTaskMutation.isPending}>
+                    {assignTaskMutation.isPending ? "Assigning..." : "Assign Task"}
                   </Button>
                 </DialogFooter>
               </form>
