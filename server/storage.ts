@@ -31,6 +31,35 @@ export interface IStorage {
   // User operations (mandatory for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+  updateUserLastLogin(id: string): Promise<void>;
+  getUsersByRole(role: string): Promise<User[]>;
+  updateUserRole(id: string, role: string, permissions?: any): Promise<User>;
+  deactivateUser(id: string): Promise<void>;
+  
+  // RBAC operations
+  getRoles(): Promise<Role[]>;
+  createRole(role: InsertRole): Promise<Role>;
+  updateRole(id: number, role: Partial<InsertRole>): Promise<Role>;
+  deleteRole(id: number): Promise<void>;
+  
+  // Security and audit operations
+  createUserSession(session: InsertUserSession): Promise<UserSession>;
+  getUserActiveSessions(userId: string): Promise<UserSession[]>;
+  endUserSession(sessionId: string): Promise<void>;
+  createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
+  getAuditLogs(filters?: { userId?: string; action?: string; severity?: string; limit?: number }): Promise<AuditLog[]>;
+  
+  // System settings operations
+  getSystemSettings(category?: string): Promise<SystemSetting[]>;
+  getSystemSetting(key: string): Promise<SystemSetting | undefined>;
+  updateSystemSetting(key: string, value: any, updatedBy: string): Promise<SystemSetting>;
+  
+  // Chat operations
+  getChatConversations(userId: string): Promise<ChatConversation[]>;
+  createChatConversation(conversation: InsertChatConversation): Promise<ChatConversation>;
+  getChatMessages(conversationId: number): Promise<ChatMessage[]>;
+  createChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
+  updateConversationTitle(id: number, title: string): Promise<ChatConversation>;
   
   // Team operations
   getTeams(): Promise<Team[]>;
@@ -102,6 +131,175 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return user;
+  }
+
+  async updateUserLastLogin(id: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ lastLoginAt: new Date() })
+      .where(eq(users.id, id));
+  }
+
+  async getUsersByRole(role: string): Promise<User[]> {
+    return await db.select().from(users).where(eq(users.role, role));
+  }
+
+  async updateUserRole(id: string, role: string, permissions?: any): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ 
+        role, 
+        permissions: permissions || {},
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  async deactivateUser(id: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(users.id, id));
+  }
+
+  // RBAC operations
+  async getRoles(): Promise<Role[]> {
+    return await db.select().from(roles);
+  }
+
+  async createRole(roleData: InsertRole): Promise<Role> {
+    const [role] = await db.insert(roles).values(roleData).returning();
+    return role;
+  }
+
+  async updateRole(id: number, roleData: Partial<InsertRole>): Promise<Role> {
+    const [role] = await db
+      .update(roles)
+      .set(roleData)
+      .where(eq(roles.id, id))
+      .returning();
+    return role;
+  }
+
+  async deleteRole(id: number): Promise<void> {
+    await db.delete(roles).where(eq(roles.id, id));
+  }
+
+  // Security and audit operations
+  async createUserSession(sessionData: InsertUserSession): Promise<UserSession> {
+    const [session] = await db.insert(userSessions).values(sessionData).returning();
+    return session;
+  }
+
+  async getUserActiveSessions(userId: string): Promise<UserSession[]> {
+    return await db
+      .select()
+      .from(userSessions)
+      .where(and(eq(userSessions.userId, userId), eq(userSessions.isActive, true)));
+  }
+
+  async endUserSession(sessionId: string): Promise<void> {
+    await db
+      .update(userSessions)
+      .set({ isActive: false, logoutAt: new Date() })
+      .where(eq(userSessions.sessionId, sessionId));
+  }
+
+  async createAuditLog(logData: InsertAuditLog): Promise<AuditLog> {
+    const [log] = await db.insert(auditLogs).values(logData).returning();
+    return log;
+  }
+
+  async getAuditLogs(filters?: { userId?: string; action?: string; severity?: string; limit?: number }): Promise<AuditLog[]> {
+    let query = db.select().from(auditLogs);
+    
+    if (filters?.userId) {
+      query = query.where(eq(auditLogs.userId, filters.userId));
+    }
+    if (filters?.action) {
+      query = query.where(eq(auditLogs.action, filters.action));
+    }
+    if (filters?.severity) {
+      query = query.where(eq(auditLogs.severity, filters.severity));
+    }
+    
+    query = query.orderBy(desc(auditLogs.timestamp));
+    
+    if (filters?.limit) {
+      query = query.limit(filters.limit);
+    }
+    
+    return await query;
+  }
+
+  // System settings operations
+  async getSystemSettings(category?: string): Promise<SystemSetting[]> {
+    if (category) {
+      return await db.select().from(systemSettings).where(eq(systemSettings.category, category));
+    }
+    return await db.select().from(systemSettings);
+  }
+
+  async getSystemSetting(key: string): Promise<SystemSetting | undefined> {
+    const [setting] = await db.select().from(systemSettings).where(eq(systemSettings.key, key));
+    return setting;
+  }
+
+  async updateSystemSetting(key: string, value: any, updatedBy: string): Promise<SystemSetting> {
+    const [setting] = await db
+      .insert(systemSettings)
+      .values({ key, value, updatedBy, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: systemSettings.key,
+        set: { value, updatedBy, updatedAt: new Date() }
+      })
+      .returning();
+    return setting;
+  }
+
+  // Chat operations
+  async getChatConversations(userId: string): Promise<ChatConversation[]> {
+    return await db
+      .select()
+      .from(chatConversations)
+      .where(and(eq(chatConversations.userId, userId), eq(chatConversations.isActive, true)))
+      .orderBy(desc(chatConversations.updatedAt));
+  }
+
+  async createChatConversation(conversationData: InsertChatConversation): Promise<ChatConversation> {
+    const [conversation] = await db.insert(chatConversations).values(conversationData).returning();
+    return conversation;
+  }
+
+  async getChatMessages(conversationId: number): Promise<ChatMessage[]> {
+    return await db
+      .select()
+      .from(chatMessages)
+      .where(eq(chatMessages.conversationId, conversationId))
+      .orderBy(chatMessages.createdAt);
+  }
+
+  async createChatMessage(messageData: InsertChatMessage): Promise<ChatMessage> {
+    const [message] = await db.insert(chatMessages).values(messageData).returning();
+    
+    // Update conversation timestamp
+    await db
+      .update(chatConversations)
+      .set({ updatedAt: new Date() })
+      .where(eq(chatConversations.id, messageData.conversationId));
+    
+    return message;
+  }
+
+  async updateConversationTitle(id: number, title: string): Promise<ChatConversation> {
+    const [conversation] = await db
+      .update(chatConversations)
+      .set({ title, updatedAt: new Date() })
+      .where(eq(chatConversations.id, id))
+      .returning();
+    return conversation;
   }
 
   // Team operations

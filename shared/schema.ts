@@ -33,11 +33,81 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  role: varchar("role").notNull().default("member"), // sp, team_leader, member
+  role: varchar("role").notNull().default("member"), // sp, team_leader, member, viewer
   team: varchar("team"), // alpha, bravo, charlie
   designation: varchar("designation"),
+  permissions: jsonb("permissions").default('{}'), // custom permissions object
+  isActive: boolean("is_active").default(true),
+  lastLoginAt: timestamp("last_login_at"),
+  securityLevel: varchar("security_level").default("standard"), // high, standard, limited
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Roles and permissions table
+export const roles = pgTable("roles", {
+  id: serial("id").primaryKey(),
+  name: varchar("name").unique().notNull(),
+  description: text("description"),
+  permissions: jsonb("permissions").notNull().default('{}'),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// User sessions for security tracking
+export const userSessions = pgTable("user_sessions", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  sessionId: varchar("session_id").notNull(),
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  loginAt: timestamp("login_at").defaultNow(),
+  logoutAt: timestamp("logout_at"),
+  isActive: boolean("is_active").default(true),
+});
+
+// Security audit logs
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id),
+  action: varchar("action").notNull(),
+  resource: varchar("resource").notNull(),
+  resourceId: varchar("resource_id"),
+  details: jsonb("details"),
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  timestamp: timestamp("timestamp").defaultNow(),
+  severity: varchar("severity").default("info"), // critical, high, medium, low, info
+});
+
+// System settings
+export const systemSettings = pgTable("system_settings", {
+  id: serial("id").primaryKey(),
+  key: varchar("key").unique().notNull(),
+  value: jsonb("value").notNull(),
+  description: text("description"),
+  category: varchar("category").default("general"),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Chat conversations with LLM
+export const chatConversations = pgTable("chat_conversations", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  title: varchar("title"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Chat messages
+export const chatMessages = pgTable("chat_messages", {
+  id: serial("id").primaryKey(),
+  conversationId: integer("conversation_id").references(() => chatConversations.id).notNull(),
+  role: varchar("role").notNull(), // user, assistant, system
+  content: text("content").notNull(),
+  metadata: jsonb("metadata").default('{}'),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Teams table
@@ -151,6 +221,48 @@ export const usersRelations = relations(users, ({ many }) => ({
   uploadedDocuments: many(documents),
   submittedFeedback: many(feedback),
   activities: many(activities),
+  sessions: many(userSessions),
+  conversations: many(chatConversations),
+}));
+
+export const rolesRelations = relations(roles, ({ many }) => ({
+  // Additional relations can be added here
+}));
+
+export const userSessionsRelations = relations(userSessions, ({ one }) => ({
+  user: one(users, {
+    fields: [userSessions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [auditLogs.userId],
+    references: [users.id],
+  }),
+}));
+
+export const systemSettingsRelations = relations(systemSettings, ({ one }) => ({
+  updatedByUser: one(users, {
+    fields: [systemSettings.updatedBy],
+    references: [users.id],
+  }),
+}));
+
+export const chatConversationsRelations = relations(chatConversations, ({ one, many }) => ({
+  user: one(users, {
+    fields: [chatConversations.userId],
+    references: [users.id],
+  }),
+  messages: many(chatMessages),
+}));
+
+export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
+  conversation: one(chatConversations, {
+    fields: [chatMessages.conversationId],
+    references: [chatConversations.id],
+  }),
 }));
 
 export const teamsRelations = relations(teams, ({ one, many }) => ({
@@ -250,6 +362,24 @@ export type Feedback = typeof feedback.$inferSelect;
 
 export type InsertActivity = typeof activities.$inferInsert;
 export type Activity = typeof activities.$inferSelect;
+
+export type InsertRole = typeof roles.$inferInsert;
+export type Role = typeof roles.$inferSelect;
+
+export type InsertUserSession = typeof userSessions.$inferInsert;
+export type UserSession = typeof userSessions.$inferSelect;
+
+export type InsertAuditLog = typeof auditLogs.$inferInsert;
+export type AuditLog = typeof auditLogs.$inferSelect;
+
+export type InsertSystemSetting = typeof systemSettings.$inferInsert;
+export type SystemSetting = typeof systemSettings.$inferSelect;
+
+export type InsertChatConversation = typeof chatConversations.$inferInsert;
+export type ChatConversation = typeof chatConversations.$inferSelect;
+
+export type InsertChatMessage = typeof chatMessages.$inferInsert;
+export type ChatMessage = typeof chatMessages.$inferSelect;
 
 // Zod schemas
 export const insertTeamSchema = createInsertSchema(teams).omit({
