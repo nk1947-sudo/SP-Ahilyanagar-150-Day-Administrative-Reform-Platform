@@ -1,0 +1,44 @@
+<svg width="200" height="80" viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg">
+  <!-- Maharashtra State Emblem -->
+  <circle cx="40" cy="40" r="35" fill="#FF6B35" stroke="#8B4513" stroke-width="2"/>
+  <circle cx="40" cy="40" r="30" fill="#FFD700"/>
+  
+  <!-- Ashoka Chakra -->
+  <circle cx="40" cy="40" r="20" fill="none" stroke="#000080" stroke-width="1.5"/>
+  <g transform="translate(40,40)">
+    <!-- 24 spokes -->
+    <g>
+      <line x1="0" y1="-20" x2="0" y2="-15" stroke="#000080" stroke-width="1"/>
+      <line x1="5.2" y1="-19.3" x2="3.9" y2="-14.5" stroke="#000080" stroke-width="1"/>
+      <line x1="10.4" y1="-17.3" x2="7.8" y2="-13" stroke="#000080" stroke-width="1"/>
+      <line x1="15.3" y1="-14.1" x2="11.5" y2="-10.6" stroke="#000080" stroke-width="1"/>
+      <line x1="19.3" y1="-10.4" x2="14.5" y2="-7.8" stroke="#000080" stroke-width="1"/>
+      <line x1="20" y1="0" x2="15" y2="0" stroke="#000080" stroke-width="1"/>
+      <line x1="19.3" y1="10.4" x2="14.5" y2="7.8" stroke="#000080" stroke-width="1"/>
+      <line x1="15.3" y1="14.1" x2="11.5" y2="10.6" stroke="#000080" stroke-width="1"/>
+      <line x1="10.4" y1="17.3" x2="7.8" y2="13" stroke="#000080" stroke-width="1"/>
+      <line x1="5.2" y1="19.3" x2="3.9" y2="14.5" stroke="#000080" stroke-width="1"/>
+      <line x1="0" y1="20" x2="0" y2="15" stroke="#000080" stroke-width="1"/>
+      <line x1="-5.2" y1="19.3" x2="-3.9" y2="14.5" stroke="#000080" stroke-width="1"/>
+      <line x1="-10.4" y1="17.3" x2="-7.8" y2="13" stroke="#000080" stroke-width="1"/>
+      <line x1="-15.3" y1="14.1" x2="-11.5" y2="10.6" stroke="#000080" stroke-width="1"/>
+      <line x1="-19.3" y1="10.4" x2="-14.5" y2="7.8" stroke="#000080" stroke-width="1"/>
+      <line x1="-20" y1="0" x2="-15" y2="0" stroke="#000080" stroke-width="1"/>
+      <line x1="-19.3" y1="-10.4" x2="-14.5" y2="-7.8" stroke="#000080" stroke-width="1"/>
+      <line x1="-15.3" y1="-14.1" x2="-11.5" y2="-10.6" stroke="#000080" stroke-width="1"/>
+      <line x1="-10.4" y1="-17.3" x2="-7.8" y2="-13" stroke="#000080" stroke-width="1"/>
+      <line x1="-5.2" y1="-19.3" x2="-3.9" y2="-14.5" stroke="#000080" stroke-width="1"/>
+    </g>
+  </g>
+  
+  <!-- Vision 2047 Text -->
+  <text x="90" y="25" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#000080">
+    विकसित महाराष्ट्र
+  </text>
+  <text x="90" y="45" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#FF6B35">
+    VISION 2047
+  </text>
+  <text x="90" y="62" font-family="Arial, sans-serif" font-size="10" fill="#8B4513">
+    भविष्यातील मार्गचाल
+  </text>
+</svg>
