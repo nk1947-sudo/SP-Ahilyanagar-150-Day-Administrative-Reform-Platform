@@ -1,26 +1,32 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Shield, Target, Users, Calendar, BarChart3, FileText, MessageSquare, Clock } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Shield, Target, Users, Calendar, BarChart3, FileText, MessageSquare, Clock, MapPin, Award, Building2 } from "lucide-react";
+import vision2047Logo from "@/assets/vision-2047-logo.svg";
 
 export default function Landing() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      {/* Header */}
-      <header className="border-b border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
+      {/* Header with Vision 2047 Branding */}
+      <header className="border-b border-border bg-gradient-to-r from-secondary via-primary to-accent text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
+          <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                <Shield className="h-6 w-6 text-white" />
-              </div>
-              <div className="ml-3">
-                <div className="text-lg font-bold text-gray-900 dark:text-white">SP Ahilyanagar</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">150-Day Reform Program</div>
+              <img 
+                src={vision2047Logo} 
+                alt="Vision 2047 Maharashtra" 
+                className="h-12 w-auto mr-4"
+              />
+              <div>
+                <div className="text-lg font-bold">SP Ahilyanagar</div>
+                <div className="text-sm opacity-90">150-Day Administrative Reform Program</div>
+                <div className="text-xs opacity-75">विकसित महाराष्ट्र 2047</div>
               </div>
             </div>
             <Button 
               onClick={() => window.location.href = '/api/login'}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              variant="outline"
+              className="bg-white/10 border-white/20 text-white hover:bg-white/20"
             >
               Login to Dashboard
             </Button>

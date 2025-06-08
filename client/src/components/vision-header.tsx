@@ -36,9 +36,9 @@ export function VisionHeader() {
               <div className="flex items-center space-x-4">
                 <div className="text-right">
                   <p className="text-sm font-medium">
-                    {user?.firstName} {user?.lastName}
+                    {(user as any)?.firstName} {(user as any)?.lastName}
                   </p>
-                  <p className="text-xs opacity-75">{user?.email}</p>
+                  <p className="text-xs opacity-75">{(user as any)?.email}</p>
                 </div>
                 <Button 
                   variant="outline" 
