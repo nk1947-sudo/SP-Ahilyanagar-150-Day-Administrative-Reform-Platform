@@ -1,0 +1,360 @@
+import {
+  users,
+  teams,
+  tasks,
+  dailyReports,
+  budgetItems,
+  documents,
+  feedback,
+  activities,
+  type User,
+  type UpsertUser,
+  type Team,
+  type InsertTeam,
+  type Task,
+  type InsertTask,
+  type DailyReport,
+  type InsertDailyReport,
+  type BudgetItem,
+  type InsertBudgetItem,
+  type Document,
+  type InsertDocument,
+  type Feedback,
+  type InsertFeedback,
+  type Activity,
+  type InsertActivity,
+} from "@shared/schema";
+import { db } from "./db";
+import { eq, desc, and, gte, lte, ilike, sql } from "drizzle-orm";
+
+export interface IStorage {
+  // User operations (mandatory for Replit Auth)
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
+  
+  // Team operations
+  getTeams(): Promise<Team[]>;
+  getTeam(id: number): Promise<Team | undefined>;
+  createTeam(team: InsertTeam): Promise<Team>;
+  updateTeam(id: number, team: Partial<InsertTeam>): Promise<Team>;
+  
+  // Task operations
+  getTasks(filters?: { teamId?: number; status?: string; assignedTo?: string }): Promise<Task[]>;
+  getTask(id: number): Promise<Task | undefined>;
+  createTask(task: InsertTask): Promise<Task>;
+  updateTask(id: number, task: Partial<InsertTask>): Promise<Task>;
+  deleteTask(id: number): Promise<void>;
+  
+  // Daily report operations
+  getDailyReports(filters?: { teamId?: number; reportDate?: string; reportTime?: string }): Promise<DailyReport[]>;
+  createDailyReport(report: InsertDailyReport): Promise<DailyReport>;
+  updateDailyReport(id: number, report: Partial<InsertDailyReport>): Promise<DailyReport>;
+  
+  // Budget operations
+  getBudgetItems(teamId?: number): Promise<BudgetItem[]>;
+  createBudgetItem(item: InsertBudgetItem): Promise<BudgetItem>;
+  updateBudgetItem(id: number, item: Partial<InsertBudgetItem>): Promise<BudgetItem>;
+  
+  // Document operations
+  getDocuments(filters?: { teamId?: number; category?: string; isPublic?: boolean }): Promise<Document[]>;
+  getDocument(id: number): Promise<Document | undefined>;
+  createDocument(document: InsertDocument): Promise<Document>;
+  updateDocument(id: number, document: Partial<InsertDocument>): Promise<Document>;
+  deleteDocument(id: number): Promise<void>;
+  
+  // Feedback operations
+  getFeedback(filters?: { status?: string; type?: string; submittedBy?: string }): Promise<Feedback[]>;
+  createFeedback(feedback: InsertFeedback): Promise<Feedback>;
+  updateFeedback(id: number, feedback: Partial<InsertFeedback>): Promise<Feedback>;
+  
+  // Activity operations
+  getActivities(limit?: number): Promise<Activity[]>;
+  createActivity(activity: InsertActivity): Promise<Activity>;
+  
+  // Dashboard statistics
+  getDashboardStats(): Promise<{
+    overallProgress: number;
+    tasksCompleted: number;
+    totalTasks: number;
+    budgetUtilized: number;
+    budgetAllocated: number;
+    teamPerformance: string;
+  }>;
+}
+
+export class DatabaseStorage implements IStorage {
+  // User operations (mandatory for Replit Auth)
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
+  }
+
+  // Team operations
+  async getTeams(): Promise<Team[]> {
+    return await db.select().from(teams);
+  }
+
+  async getTeam(id: number): Promise<Team | undefined> {
+    const [team] = await db.select().from(teams).where(eq(teams.id, id));
+    return team;
+  }
+
+  async createTeam(team: InsertTeam): Promise<Team> {
+    const [newTeam] = await db.insert(teams).values(team).returning();
+    return newTeam;
+  }
+
+  async updateTeam(id: number, team: Partial<InsertTeam>): Promise<Team> {
+    const [updatedTeam] = await db
+      .update(teams)
+      .set(team)
+      .where(eq(teams.id, id))
+      .returning();
+    return updatedTeam;
+  }
+
+  // Task operations
+  async getTasks(filters?: { teamId?: number; status?: string; assignedTo?: string }): Promise<Task[]> {
+    let query = db.select().from(tasks);
+    
+    if (filters?.teamId) {
+      query = query.where(eq(tasks.teamId, filters.teamId));
+    }
+    if (filters?.status) {
+      query = query.where(eq(tasks.status, filters.status));
+    }
+    if (filters?.assignedTo) {
+      query = query.where(eq(tasks.assignedTo, filters.assignedTo));
+    }
+    
+    return await query.orderBy(desc(tasks.createdAt));
+  }
+
+  async getTask(id: number): Promise<Task | undefined> {
+    const [task] = await db.select().from(tasks).where(eq(tasks.id, id));
+    return task;
+  }
+
+  async createTask(task: InsertTask): Promise<Task> {
+    const [newTask] = await db.insert(tasks).values(task).returning();
+    return newTask;
+  }
+
+  async updateTask(id: number, task: Partial<InsertTask>): Promise<Task> {
+    const [updatedTask] = await db
+      .update(tasks)
+      .set({ ...task, updatedAt: new Date() })
+      .where(eq(tasks.id, id))
+      .returning();
+    return updatedTask;
+  }
+
+  async deleteTask(id: number): Promise<void> {
+    await db.delete(tasks).where(eq(tasks.id, id));
+  }
+
+  // Daily report operations
+  async getDailyReports(filters?: { teamId?: number; reportDate?: string; reportTime?: string }): Promise<DailyReport[]> {
+    let query = db.select().from(dailyReports);
+    
+    if (filters?.teamId) {
+      query = query.where(eq(dailyReports.teamId, filters.teamId));
+    }
+    if (filters?.reportDate) {
+      query = query.where(eq(dailyReports.reportDate, filters.reportDate));
+    }
+    if (filters?.reportTime) {
+      query = query.where(eq(dailyReports.reportTime, filters.reportTime));
+    }
+    
+    return await query.orderBy(desc(dailyReports.createdAt));
+  }
+
+  async createDailyReport(report: InsertDailyReport): Promise<DailyReport> {
+    const [newReport] = await db.insert(dailyReports).values(report).returning();
+    return newReport;
+  }
+
+  async updateDailyReport(id: number, report: Partial<InsertDailyReport>): Promise<DailyReport> {
+    const [updatedReport] = await db
+      .update(dailyReports)
+      .set(report)
+      .where(eq(dailyReports.id, id))
+      .returning();
+    return updatedReport;
+  }
+
+  // Budget operations
+  async getBudgetItems(teamId?: number): Promise<BudgetItem[]> {
+    let query = db.select().from(budgetItems);
+    
+    if (teamId) {
+      query = query.where(eq(budgetItems.teamId, teamId));
+    }
+    
+    return await query;
+  }
+
+  async createBudgetItem(item: InsertBudgetItem): Promise<BudgetItem> {
+    const [newItem] = await db.insert(budgetItems).values(item).returning();
+    return newItem;
+  }
+
+  async updateBudgetItem(id: number, item: Partial<InsertBudgetItem>): Promise<BudgetItem> {
+    const [updatedItem] = await db
+      .update(budgetItems)
+      .set(item)
+      .where(eq(budgetItems.id, id))
+      .returning();
+    return updatedItem;
+  }
+
+  // Document operations
+  async getDocuments(filters?: { teamId?: number; category?: string; isPublic?: boolean }): Promise<Document[]> {
+    let query = db.select().from(documents);
+    
+    if (filters?.teamId) {
+      query = query.where(eq(documents.teamId, filters.teamId));
+    }
+    if (filters?.category) {
+      query = query.where(eq(documents.category, filters.category));
+    }
+    if (filters?.isPublic !== undefined) {
+      query = query.where(eq(documents.isPublic, filters.isPublic));
+    }
+    
+    return await query.orderBy(desc(documents.createdAt));
+  }
+
+  async getDocument(id: number): Promise<Document | undefined> {
+    const [document] = await db.select().from(documents).where(eq(documents.id, id));
+    return document;
+  }
+
+  async createDocument(document: InsertDocument): Promise<Document> {
+    const [newDocument] = await db.insert(documents).values(document).returning();
+    return newDocument;
+  }
+
+  async updateDocument(id: number, document: Partial<InsertDocument>): Promise<Document> {
+    const [updatedDocument] = await db
+      .update(documents)
+      .set(document)
+      .where(eq(documents.id, id))
+      .returning();
+    return updatedDocument;
+  }
+
+  async deleteDocument(id: number): Promise<void> {
+    await db.delete(documents).where(eq(documents.id, id));
+  }
+
+  // Feedback operations
+  async getFeedback(filters?: { status?: string; type?: string; submittedBy?: string }): Promise<Feedback[]> {
+    let query = db.select().from(feedback);
+    
+    if (filters?.status) {
+      query = query.where(eq(feedback.status, filters.status));
+    }
+    if (filters?.type) {
+      query = query.where(eq(feedback.type, filters.type));
+    }
+    if (filters?.submittedBy) {
+      query = query.where(eq(feedback.submittedBy, filters.submittedBy));
+    }
+    
+    return await query.orderBy(desc(feedback.createdAt));
+  }
+
+  async createFeedback(feedbackData: InsertFeedback): Promise<Feedback> {
+    const [newFeedback] = await db.insert(feedback).values(feedbackData).returning();
+    return newFeedback;
+  }
+
+  async updateFeedback(id: number, feedbackData: Partial<InsertFeedback>): Promise<Feedback> {
+    const [updatedFeedback] = await db
+      .update(feedback)
+      .set(feedbackData)
+      .where(eq(feedback.id, id))
+      .returning();
+    return updatedFeedback;
+  }
+
+  // Activity operations
+  async getActivities(limit: number = 50): Promise<Activity[]> {
+    return await db
+      .select()
+      .from(activities)
+      .orderBy(desc(activities.createdAt))
+      .limit(limit);
+  }
+
+  async createActivity(activity: InsertActivity): Promise<Activity> {
+    const [newActivity] = await db.insert(activities).values(activity).returning();
+    return newActivity;
+  }
+
+  // Dashboard statistics
+  async getDashboardStats(): Promise<{
+    overallProgress: number;
+    tasksCompleted: number;
+    totalTasks: number;
+    budgetUtilized: number;
+    budgetAllocated: number;
+    teamPerformance: string;
+  }> {
+    // Get task statistics
+    const taskStats = await db
+      .select({
+        total: sql<number>`count(*)::int`,
+        completed: sql<number>`count(*) FILTER (WHERE status = 'completed')::int`,
+        avgProgress: sql<number>`avg(progress)::int`,
+      })
+      .from(tasks);
+
+    // Get budget statistics
+    const budgetStats = await db
+      .select({
+        allocated: sql<number>`sum(allocated_amount)::numeric`,
+        utilized: sql<number>`sum(utilized_amount)::numeric`,
+      })
+      .from(budgetItems);
+
+    const stats = taskStats[0];
+    const budget = budgetStats[0];
+
+    // Calculate team performance based on task completion rate
+    const completionRate = stats.total > 0 ? (stats.completed / stats.total) * 100 : 0;
+    let teamPerformance = "C";
+    if (completionRate >= 90) teamPerformance = "A+";
+    else if (completionRate >= 80) teamPerformance = "A";
+    else if (completionRate >= 70) teamPerformance = "B+";
+    else if (completionRate >= 60) teamPerformance = "B";
+
+    return {
+      overallProgress: stats.avgProgress || 0,
+      tasksCompleted: stats.completed || 0,
+      totalTasks: stats.total || 0,
+      budgetUtilized: parseFloat(budget.utilized || "0"),
+      budgetAllocated: parseFloat(budget.allocated || "0"),
+      teamPerformance,
+    };
+  }
+}
+
+export const storage = new DatabaseStorage();
