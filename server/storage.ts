@@ -7,6 +7,12 @@ import {
   documents,
   feedback,
   activities,
+  roles,
+  userSessions,
+  auditLogs,
+  systemSettings,
+  chatConversations,
+  chatMessages,
   type User,
   type UpsertUser,
   type Team,
@@ -23,6 +29,18 @@ import {
   type InsertFeedback,
   type Activity,
   type InsertActivity,
+  type Role,
+  type InsertRole,
+  type UserSession,
+  type InsertUserSession,
+  type AuditLog,
+  type InsertAuditLog,
+  type SystemSetting,
+  type InsertSystemSetting,
+  type ChatConversation,
+  type InsertChatConversation,
+  type ChatMessage,
+  type InsertChatMessage,
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, desc, and, gte, lte, ilike, sql } from "drizzle-orm";
@@ -185,6 +203,42 @@ export class DatabaseStorage implements IStorage {
       .update(users)
       .set({ isActive: false, updatedAt: new Date() })
       .where(eq(users.id, id));
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async getUserByPhone(phone: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.phone, phone));
+    return user;
+  }
+
+  async createUser(userData: any): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values({
+        id: userData.id || crypto.randomUUID(),
+        email: userData.email,
+        username: userData.username,
+        password: userData.password,
+        phone: userData.phone,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        role: userData.role || 'user',
+        team: userData.team || null,
+        securityLevel: userData.securityLevel || 'standard',
+        permissions: userData.permissions || {},
+        isActive: true,
+      })
+      .returning();
+    return user;
   }
 
   // RBAC operations
