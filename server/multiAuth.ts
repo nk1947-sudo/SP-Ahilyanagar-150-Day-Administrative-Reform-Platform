@@ -44,7 +44,7 @@ const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_T
 
 // Email transporter for email OTP
 const emailTransporter = process.env.EMAIL_USER && process.env.EMAIL_PASS
-  ? nodemailer.createTransporter({
+  ? nodemailer.createTransport({
       service: 'gmail',
       auth: {
         user: process.env.EMAIL_USER,
