@@ -36,6 +36,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
 
+  // Health check endpoint (no auth required)
+  app.get('/api/health', async (req, res) => {
+    try {
+      const teams = await storage.getTeams();
+      const tasks = await storage.getTasks();
+      const reports = await storage.getDailyReports();
+      const budget = await storage.getBudgetItems();
+      const documents = await storage.getDocuments();
+      const feedback = await storage.getFeedback();
+      const activities = await storage.getActivities(5);
+      
+      res.json({
+        status: 'healthy',
+        database: 'connected',
+        endpoints: {
+          teams: teams.length,
+          tasks: tasks.length,
+          dailyReports: reports.length,
+          budgetItems: budget.length,
+          documents: documents.length,
+          feedback: feedback.length,
+          activities: activities.length
+        },
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Health check failed:", error);
+      res.status(500).json({ 
+        status: 'unhealthy', 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
