@@ -12,7 +12,9 @@ import {
   Calendar,
   Target,
   TrendingUp,
-  Clock
+  Clock,
+  Bot,
+  Shield
 } from "lucide-react";
 
 const navigationItems = [
@@ -63,6 +65,18 @@ const navigationItems = [
     href: "/timeline",
     icon: Calendar,
     description: "150-day program timeline"
+  },
+  {
+    title: "AI Assistant",
+    href: "/ai-assistant",
+    icon: Bot,
+    description: "Administrative guidance and support"
+  },
+  {
+    title: "Admin Console",
+    href: "/admin",
+    icon: Shield,
+    description: "Security and user management"
   }
 ];
 

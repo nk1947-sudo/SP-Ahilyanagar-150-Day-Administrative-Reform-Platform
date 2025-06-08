@@ -15,6 +15,8 @@ import Documents from "@/pages/documents";
 import BudgetTracking from "@/pages/budget-tracking";
 import FeedbackSystem from "@/pages/feedback-system";
 import TimelineView from "@/pages/timeline-view";
+import AIAssistant from "@/pages/ai-assistant";
+import AdminConsole from "@/pages/admin-console";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -38,6 +40,8 @@ function Router() {
               <Route path="/budget" component={BudgetTracking} />
               <Route path="/feedback" component={FeedbackSystem} />
               <Route path="/timeline" component={TimelineView} />
+              <Route path="/ai-assistant" component={AIAssistant} />
+              <Route path="/admin" component={AdminConsole} />
             </main>
           </div>
         )}
