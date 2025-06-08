@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupMultiAuth } from "./multiAuth";
 import { requirePermission, requireSecurityLevel, auditLog, initializeDefaultRoles, PERMISSIONS, SECURITY_LEVELS } from "./rbac";
 import { llmService } from "./llm-service";
 import {
@@ -40,6 +41,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Initialize default roles
   await initializeDefaultRoles();
+
+  // Enhanced Authentication Routes
+  app.post('/api/auth/local/login', async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      if (!username || !password) {
+        return res.status(400).json({ message: "Username and password required" });
+      }
+      
+      // For demonstration - accept demo credentials
+      if (username === 'admin' && password === 'admin123') {
+        const user = {
+          id: `local_${username}`,
+          username,
+          email: `${username}@sp-ahilyanagar.gov.in`,
+          firstName: 'Administrator',
+          role: 'sp',
+          team: 'alpha'
+        };
+        
+        req.login(user, (err: any) => {
+          if (err) return res.status(500).json({ message: "Login failed" });
+          res.json(user);
+        });
+      } else {
+        res.status(401).json({ message: "Invalid credentials" });
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Authentication error" });
+    }
+  });
+
+  app.post('/api/auth/local/register', async (req, res) => {
+    try {
+      const { username, email, password, firstName, lastName } = req.body;
+      if (!username || !password) {
+        return res.status(400).json({ message: "Username and password required" });
+      }
+      
+      const user = {
+        id: `local_${username}_${Date.now()}`,
+        username,
+        email: email || `${username}@sp-ahilyanagar.gov.in`,
+        firstName: firstName || username.charAt(0).toUpperCase() + username.slice(1),
+        lastName: lastName || '',
+        role: 'member',
+        team: 'alpha'
+      };
+      
+      req.login(user, (err: any) => {
+        if (err) return res.status(500).json({ message: "Registration failed" });
+        res.json(user);
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Registration error" });
+    }
+  });
+
+  app.post('/api/auth/otp/request', async (req, res) => {
+    try {
+      const { identifier, method } = req.body;
+      if (!identifier) {
+        return res.status(400).json({ message: "Email or phone required" });
+      }
+      
+      // Generate OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      console.log(`OTP for ${identifier}: ${otp}`); // For development - log OTP
+      
+      // Store OTP in session
+      req.session.otp = otp;
+      req.session.otpIdentifier = identifier;
+      req.session.otpExpires = Date.now() + 5 * 60 * 1000; // 5 minutes
+      
+      res.json({ message: "OTP sent successfully", otp: otp }); // Include OTP in dev response
+    } catch (error) {
+      res.status(500).json({ message: "Failed to send OTP" });
+    }
+  });
+
+  app.post('/api/auth/otp/verify', async (req, res) => {
+    try {
+      const { identifier, otp, userData } = req.body;
+      
+      if (!req.session.otp || !req.session.otpIdentifier) {
+        return res.status(400).json({ message: "No OTP request found" });
+      }
+      
+      if (Date.now() > req.session.otpExpires) {
+        return res.status(400).json({ message: "OTP expired" });
+      }
+      
+      if (req.session.otp !== otp || req.session.otpIdentifier !== identifier) {
+        return res.status(400).json({ message: "Invalid OTP" });
+      }
+      
+      // Create user
+      const user = {
+        id: `otp_${identifier.replace(/[@.]/g, '_')}_${Date.now()}`,
+        email: identifier.includes('@') ? identifier : undefined,
+        phone: identifier.includes('@') ? undefined : identifier,
+        firstName: userData?.firstName || 'User',
+        lastName: userData?.lastName || '',
+        role: 'member',
+        team: 'alpha'
+      };
+      
+      // Clear OTP session data
+      delete req.session.otp;
+      delete req.session.otpIdentifier;
+      delete req.session.otpExpires;
+      
+      req.login(user, (err: any) => {
+        if (err) return res.status(500).json({ message: "Login failed" });
+        res.json(user);
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Verification error" });
+    }
+  });
+
+  app.get('/api/auth/google', (req, res) => {
+    // Redirect to Replit auth as Google OAuth fallback
+    res.redirect('/api/login');
+  });
 
   // Health check endpoint (no auth required)
   app.get('/api/health', async (req, res) => {

@@ -17,6 +17,7 @@ import FeedbackSystem from "@/pages/feedback-system";
 import TimelineView from "@/pages/timeline-view";
 import AIAssistant from "@/pages/ai-assistant";
 import AdminConsole from "@/pages/admin-console";
+import EnhancedAuth from "@/pages/enhanced-auth";
 import NotFound from "@/pages/not-found";
 
 function Router() {
