@@ -23,13 +23,22 @@ export default function Landing() {
                 <div className="text-xs opacity-75">विकसित महाराष्ट्र 2047</div>
               </div>
             </div>
-            <Button 
-              onClick={() => window.location.href = '/api/login'}
-              variant="outline"
-              className="bg-white/10 border-white/20 text-white hover:bg-white/20"
-            >
-              Login to Dashboard
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                onClick={() => window.location.href = '/auth'}
+                variant="outline"
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+              >
+                Enhanced Login
+              </Button>
+              <Button 
+                onClick={() => window.location.href = '/api/login'}
+                variant="outline"
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+              >
+                Replit Login
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -46,21 +55,48 @@ export default function Landing() {
             transformation initiative. Track progress across e-Governance, GAD reforms, 
             and Vision 2047 strategic planning.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
             <Button 
               size="lg"
-              onClick={() => window.location.href = '/api/login'}
+              onClick={() => window.location.href = '/auth'}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
-              Access Dashboard
+              Enhanced Login Portal
             </Button>
             <Button 
               size="lg" 
               variant="outline"
+              onClick={() => window.location.href = '/api/login'}
               className="border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
             >
-              Learn More
+              Standard Access
             </Button>
+          </div>
+          
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl mx-auto shadow-lg">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 text-center">
+              Multiple Authentication Options Available
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="text-center">
+                <Shield className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+                <div className="font-medium">Local Login</div>
+                <div className="text-gray-600 dark:text-gray-400">Username & Password</div>
+                <div className="text-xs text-gray-500 mt-1">Demo: admin/admin123</div>
+              </div>
+              <div className="text-center">
+                <MessageSquare className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                <div className="font-medium">OTP Verification</div>
+                <div className="text-gray-600 dark:text-gray-400">Email or SMS</div>
+                <div className="text-xs text-gray-500 mt-1">Secure one-time code</div>
+              </div>
+              <div className="text-center">
+                <Building2 className="h-8 w-8 text-red-600 mx-auto mb-2" />
+                <div className="font-medium">Google OAuth</div>
+                <div className="text-gray-600 dark:text-gray-400">Single Sign-On</div>
+                <div className="text-xs text-gray-500 mt-1">Government integration</div>
+              </div>
+            </div>
           </div>
         </div>
 
