@@ -24,8 +24,10 @@ import {
   type Activity,
   type InsertActivity,
 } from "@shared/schema";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { eq, desc, and, gte, lte, ilike, sql } from "drizzle-orm";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -35,6 +37,15 @@ export interface IStorage {
   getUsersByRole(role: string): Promise<User[]>;
   updateUserRole(id: string, role: string, permissions?: any): Promise<User>;
   deactivateUser(id: string): Promise<void>;
+  
+  // Additional authentication methods
+  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByPhone(phone: string): Promise<User | undefined>;
+  createUser(userData: any): Promise<User>;
+  
+  // Session store
+  sessionStore: any;
   
   // RBAC operations
   getRoles(): Promise<Role[]>;
@@ -112,6 +123,18 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  public sessionStore: any;
+
+  constructor() {
+    // Initialize session store for authentication
+    const PostgresSessionStore = connectPg(session);
+    this.sessionStore = new PostgresSessionStore({
+      pool,
+      createTableIfMissing: true,
+      tableName: 'sessions'
+    });
+  }
+
   // User operations (mandatory for Replit Auth)
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
