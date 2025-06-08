@@ -3,6 +3,8 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { requirePermission, requireSecurityLevel, auditLog, initializeDefaultRoles, PERMISSIONS, SECURITY_LEVELS } from "./rbac";
+import { llmService } from "./llm-service";
 import {
   insertTaskSchema,
   insertDailyReportSchema,
@@ -35,6 +37,9 @@ const upload = multer({ storage: storage_multer });
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
+  
+  // Initialize default roles
+  await initializeDefaultRoles();
 
   // Health check endpoint (no auth required)
   app.get('/api/health', async (req, res) => {
@@ -471,7 +476,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Activities routes
-  app.get('/api/activities', isAuthenticated, async (req, res) => {
+  app.get('/api/activities', isAuthenticated, requirePermission(PERMISSIONS.VIEW_TASKS), async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
       const activities = await storage.getActivities(limit);
@@ -479,6 +484,179 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching activities:", error);
       res.status(500).json({ message: "Failed to fetch activities" });
+    }
+  });
+
+  // RBAC and Security Management Routes
+  
+  // User management (SP only)
+  app.get('/api/admin/users', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_USERS), requireSecurityLevel(SECURITY_LEVELS.HIGH), async (req, res) => {
+    try {
+      const role = req.query.role as string;
+      const users = role ? await storage.getUsersByRole(role) : await storage.getUsersByRole('member');
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.patch('/api/admin/users/:id/role', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_USERS), requireSecurityLevel(SECURITY_LEVELS.HIGH), auditLog('update_user_role', 'user'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { role, permissions } = req.body;
+      const updatedUser = await storage.updateUserRole(id, role, permissions);
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user role:", error);
+      res.status(500).json({ message: "Failed to update user role" });
+    }
+  });
+
+  app.patch('/api/admin/users/:id/deactivate', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_USERS), requireSecurityLevel(SECURITY_LEVELS.HIGH), auditLog('deactivate_user', 'user'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deactivateUser(id);
+      res.json({ message: "User deactivated successfully" });
+    } catch (error) {
+      console.error("Error deactivating user:", error);
+      res.status(500).json({ message: "Failed to deactivate user" });
+    }
+  });
+
+  // Role management
+  app.get('/api/admin/roles', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ROLES), async (req, res) => {
+    try {
+      const roles = await storage.getRoles();
+      res.json(roles);
+    } catch (error) {
+      console.error("Error fetching roles:", error);
+      res.status(500).json({ message: "Failed to fetch roles" });
+    }
+  });
+
+  // Audit logs
+  app.get('/api/admin/audit-logs', isAuthenticated, requirePermission(PERMISSIONS.VIEW_AUDIT_LOGS), requireSecurityLevel(SECURITY_LEVELS.STANDARD), async (req, res) => {
+    try {
+      const { userId, action, severity, limit } = req.query;
+      const logs = await storage.getAuditLogs({
+        userId: userId as string,
+        action: action as string,
+        severity: severity as string,
+        limit: limit ? parseInt(limit as string) : 100
+      });
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching audit logs:", error);
+      res.status(500).json({ message: "Failed to fetch audit logs" });
+    }
+  });
+
+  // System settings
+  app.get('/api/admin/settings', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), async (req, res) => {
+    try {
+      const category = req.query.category as string;
+      const settings = await storage.getSystemSettings(category);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+      res.status(500).json({ message: "Failed to fetch settings" });
+    }
+  });
+
+  app.put('/api/admin/settings/:key', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), requireSecurityLevel(SECURITY_LEVELS.HIGH), auditLog('update_setting', 'system_setting'), async (req, res) => {
+    try {
+      const { key } = req.params;
+      const { value } = req.body;
+      const userId = (req as any).user?.claims?.sub;
+      const setting = await storage.updateSystemSetting(key, value, userId);
+      res.json(setting);
+    } catch (error) {
+      console.error("Error updating setting:", error);
+      res.status(500).json({ message: "Failed to update setting" });
+    }
+  });
+
+  // LLM Chatbot Routes
+  
+  // Chat with AI assistant
+  app.post('/api/chat', isAuthenticated, requirePermission(PERMISSIONS.USE_AI_ASSISTANT), auditLog('ai_chat', 'llm_service'), async (req, res) => {
+    try {
+      const userId = (req as any).user?.claims?.sub;
+      const { message, conversationId } = req.body;
+
+      if (!message || message.trim().length === 0) {
+        return res.status(400).json({ message: "Message cannot be empty" });
+      }
+
+      const response = await llmService.processChat({
+        message: message.trim(),
+        conversationId,
+        userId
+      });
+
+      res.json(response);
+    } catch (error) {
+      console.error("Chat error:", error);
+      if (error instanceof Error && error.message === 'PERPLEXITY_API_KEY not configured') {
+        res.status(503).json({ message: "AI service temporarily unavailable - API key required" });
+      } else {
+        res.status(500).json({ message: "Failed to process chat request" });
+      }
+    }
+  });
+
+  // Get user's chat conversations
+  app.get('/api/chat/conversations', isAuthenticated, requirePermission(PERMISSIONS.USE_AI_ASSISTANT), async (req, res) => {
+    try {
+      const userId = (req as any).user?.claims?.sub;
+      const conversations = await llmService.getUserConversations(userId);
+      res.json(conversations);
+    } catch (error) {
+      console.error("Error fetching conversations:", error);
+      res.status(500).json({ message: "Failed to fetch conversations" });
+    }
+  });
+
+  // Get conversation history
+  app.get('/api/chat/conversations/:id', isAuthenticated, requirePermission(PERMISSIONS.USE_AI_ASSISTANT), async (req, res) => {
+    try {
+      const userId = (req as any).user?.claims?.sub;
+      const conversationId = parseInt(req.params.id);
+      const messages = await llmService.getConversationHistory(userId, conversationId);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching conversation history:", error);
+      res.status(500).json({ message: "Failed to fetch conversation history" });
+    }
+  });
+
+  // Delete conversation
+  app.delete('/api/chat/conversations/:id', isAuthenticated, requirePermission(PERMISSIONS.USE_AI_ASSISTANT), auditLog('delete_conversation', 'chat_conversation'), async (req, res) => {
+    try {
+      const userId = (req as any).user?.claims?.sub;
+      const conversationId = parseInt(req.params.id);
+      await llmService.deleteConversation(userId, conversationId);
+      res.json({ message: "Conversation deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting conversation:", error);
+      res.status(500).json({ message: "Failed to delete conversation" });
+    }
+  });
+
+  // Security monitoring endpoint
+  app.get('/api/admin/security/sessions', isAuthenticated, requirePermission(PERMISSIONS.SYSTEM_ADMIN), requireSecurityLevel(SECURITY_LEVELS.HIGH), async (req, res) => {
+    try {
+      const userId = req.query.userId as string;
+      if (userId) {
+        const sessions = await storage.getUserActiveSessions(userId);
+        res.json(sessions);
+      } else {
+        res.status(400).json({ message: "User ID required" });
+      }
+    } catch (error) {
+      console.error("Error fetching user sessions:", error);
+      res.status(500).json({ message: "Failed to fetch user sessions" });
     }
   });
 
