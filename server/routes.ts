@@ -71,6 +71,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Comprehensive API test endpoint (no auth required)
+  app.get('/api/test', async (req, res) => {
+    try {
+      const results = {
+        timestamp: new Date().toISOString(),
+        tests: {}
+      };
+
+      // Test each storage method
+      try {
+        const teams = await storage.getTeams();
+        results.tests.getTeams = { status: 'pass', count: teams.length, sample: teams[0] };
+      } catch (error) {
+        results.tests.getTeams = { status: 'fail', error: error.message };
+      }
+
+      try {
+        const tasks = await storage.getTasks();
+        results.tests.getTasks = { status: 'pass', count: tasks.length, sample: tasks[0] };
+      } catch (error) {
+        results.tests.getTasks = { status: 'fail', error: error.message };
+      }
+
+      try {
+        const reports = await storage.getDailyReports();
+        results.tests.getDailyReports = { status: 'pass', count: reports.length, sample: reports[0] };
+      } catch (error) {
+        results.tests.getDailyReports = { status: 'fail', error: error.message };
+      }
+
+      try {
+        const budget = await storage.getBudgetItems();
+        results.tests.getBudgetItems = { status: 'pass', count: budget.length, sample: budget[0] };
+      } catch (error) {
+        results.tests.getBudgetItems = { status: 'fail', error: error.message };
+      }
+
+      try {
+        const documents = await storage.getDocuments();
+        results.tests.getDocuments = { status: 'pass', count: documents.length, sample: documents[0] };
+      } catch (error) {
+        results.tests.getDocuments = { status: 'fail', error: error.message };
+      }
+
+      try {
+        const feedback = await storage.getFeedback();
+        results.tests.getFeedback = { status: 'pass', count: feedback.length, sample: feedback[0] };
+      } catch (error) {
+        results.tests.getFeedback = { status: 'fail', error: error.message };
+      }
+
+      try {
+        const activities = await storage.getActivities(5);
+        results.tests.getActivities = { status: 'pass', count: activities.length, sample: activities[0] };
+      } catch (error) {
+        results.tests.getActivities = { status: 'fail', error: error.message };
+      }
+
+      try {
+        const stats = await storage.getDashboardStats();
+        results.tests.getDashboardStats = { status: 'pass', data: stats };
+      } catch (error) {
+        results.tests.getDashboardStats = { status: 'fail', error: error.message };
+      }
+
+      // Test specific team and task operations
+      try {
+        const team1 = await storage.getTeam(1);
+        results.tests.getTeam = { status: 'pass', data: team1 };
+      } catch (error) {
+        results.tests.getTeam = { status: 'fail', error: error.message };
+      }
+
+      try {
+        const task1 = await storage.getTask(1);
+        results.tests.getTask = { status: 'pass', data: task1 };
+      } catch (error) {
+        results.tests.getTask = { status: 'fail', error: error.message };
+      }
+
+      // Test filtered operations
+      try {
+        const teamTasks = await storage.getTasks({ teamId: 1 });
+        results.tests.getTasksFiltered = { status: 'pass', count: teamTasks.length };
+      } catch (error) {
+        results.tests.getTasksFiltered = { status: 'fail', error: error.message };
+      }
+
+      res.json(results);
+    } catch (error) {
+      console.error("API test failed:", error);
+      res.status(500).json({ 
+        status: 'error', 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
