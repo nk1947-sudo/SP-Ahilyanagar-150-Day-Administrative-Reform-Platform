@@ -16,6 +16,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { EGovernanceFormTemplate } from "@/components/e-governance-form-templates";
 import { GADReformFormTemplate } from "@/components/gad-reform-form-templates";
+import { DynamicFieldRenderer } from "@/components/dynamic-field-renderer";
 
 interface AdministrativeForm {
   id: number;
@@ -109,6 +110,9 @@ export default function FormsPage() {
     teamId: null
   });
 
+  // Custom field values state
+  const [customFieldValues, setCustomFieldValues] = useState<Record<number, any>>({});
+
   // Fetch forms with filters
   const { data: forms = [], isLoading } = useQuery<AdministrativeForm[]>({
     queryKey: ["/api/forms", selectedFormType, categoryFilter, statusFilter],
@@ -136,10 +140,29 @@ export default function FormsPage() {
   // Create form mutation
   const createFormMutation = useMutation({
     mutationFn: async (formData: typeof newForm) => {
-      const response = await apiRequest("POST", "/api/forms", formData);
+      const response = await apiRequest("POST", "/api/forms", {
+        ...formData,
+        customFieldValues
+      });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: async (result) => {
+      // Save custom field values if form was created successfully
+      if (Object.keys(customFieldValues).length > 0) {
+        try {
+          await apiRequest("POST", "/api/custom-field-values", {
+            entityType: "administrative_form",
+            entityId: result.id,
+            values: Object.entries(customFieldValues).map(([fieldId, value]) => ({
+              fieldDefinitionId: parseInt(fieldId),
+              value: typeof value === "object" ? JSON.stringify(value) : String(value)
+            }))
+          });
+        } catch (error) {
+          console.error("Error saving custom field values:", error);
+        }
+      }
+      
       queryClient.invalidateQueries({ queryKey: ["/api/forms"] });
       setIsCreateModalOpen(false);
       resetForm();
@@ -214,6 +237,7 @@ export default function FormsPage() {
       priority: "medium",
       teamId: null
     });
+    setCustomFieldValues({});
   };
 
   const handleCreateForm = () => {
@@ -378,6 +402,19 @@ export default function FormsPage() {
                   />
                 </div>
               )}
+
+              {/* Dynamic Custom Fields */}
+              <div className="border-t pt-4">
+                <Label className="text-base font-semibold">Custom Fields</Label>
+                <DynamicFieldRenderer
+                  section="forms"
+                  onFieldChange={(fieldId, value) => {
+                    setCustomFieldValues(prev => ({ ...prev, [fieldId]: value }));
+                  }}
+                  values={customFieldValues}
+                  className="mt-2"
+                />
+              </div>
 
               <div className="flex justify-end space-x-2">
                 <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
