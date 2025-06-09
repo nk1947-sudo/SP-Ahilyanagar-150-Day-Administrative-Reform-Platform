@@ -15,7 +15,8 @@ import {
   Clock,
   Bot,
   Shield,
-  ClipboardList
+  ClipboardList,
+  Settings
 } from "lucide-react";
 
 const navigationItems = [
