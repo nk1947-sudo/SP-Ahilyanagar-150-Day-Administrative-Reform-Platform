@@ -358,7 +358,7 @@ export default function FormsPage() {
                     <SelectValue placeholder="Select team (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No team assigned</SelectItem>
+                    <SelectItem value="none">No team assigned</SelectItem>
                     {teams.map((team: any) => (
                       <SelectItem key={team.id} value={team.id.toString()}>
                         {team.name}

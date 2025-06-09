@@ -200,7 +200,7 @@ export default function AdminConsole() {
                       <SelectValue placeholder="All roles" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All roles</SelectItem>
+                      <SelectItem value="all">All roles</SelectItem>
                       <SelectItem value="sp">SP (Superintendent)</SelectItem>
                       <SelectItem value="team_leader">Team Leader</SelectItem>
                       <SelectItem value="member">Team Member</SelectItem>
@@ -334,7 +334,7 @@ export default function AdminConsole() {
                       <SelectValue placeholder="All severities" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All severities</SelectItem>
+                      <SelectItem value="all">All severities</SelectItem>
                       <SelectItem value="high">High</SelectItem>
                       <SelectItem value="medium">Medium</SelectItem>
                       <SelectItem value="info">Info</SelectItem>
