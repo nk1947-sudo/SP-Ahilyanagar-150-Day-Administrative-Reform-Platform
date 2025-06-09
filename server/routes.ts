@@ -1014,6 +1014,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // LLM Chatbot Routes
   
+  // Chat endpoints - GET not allowed, only POST for sending messages
+  app.get('/api/chat', (req, res) => {
+    res.status(405).json({ message: "Method not allowed. Use POST to send chat messages." });
+  });
+  
   // Chat with AI assistant
   app.post('/api/chat', isAuthenticated, async (req: any, res) => {
     try {
@@ -1043,11 +1048,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get user's chat conversations
-  app.get('/api/chat/conversations', async (req: any, res) => {
+  app.get('/api/chat/conversations', isAuthenticated, async (req: any, res) => {
     try {
-      if (!req.isAuthenticated() || !req.user) {
-        return res.status(401).json({ message: "Invalid user session" });
-      }
       
       const userId = req.user.claims?.sub || req.user.id;
       const conversations = await llmService.getUserConversations(userId);
