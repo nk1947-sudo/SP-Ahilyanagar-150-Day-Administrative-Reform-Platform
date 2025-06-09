@@ -58,6 +58,8 @@ export default function TaskManagement() {
   const [assigningTask, setAssigningTask] = useState<Task | null>(null);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("details");
+  const [responsibleUsers, setResponsibleUsers] = useState<string[]>([]);
+  const [observerUsers, setObserverUsers] = useState<string[]>([]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -84,6 +86,11 @@ export default function TaskManagement() {
     retry: false,
   });
 
+  const { data: users = [] } = useQuery({
+    queryKey: ["/api/users"],
+    retry: false,
+  });
+
   const createTaskMutation = useMutation({
     mutationFn: async (taskData: any) => {
       await apiRequest("POST", "/api/tasks", taskData);
@@ -96,6 +103,8 @@ export default function TaskManagement() {
       });
       setIsCreateDialogOpen(false);
       setAttachments([]);
+      setResponsibleUsers([]);
+      setObserverUsers([]);
       setActiveTab("details");
     },
     onError: (error) => {
@@ -286,6 +295,8 @@ export default function TaskManagement() {
       progress: 0,
       tags: formData.get("tags") ? (formData.get("tags") as string).split(",").map(tag => tag.trim()) : [],
       attachments: attachments,
+      responsibleUsers: responsibleUsers,
+      observerUsers: observerUsers,
     };
 
     createTaskMutation.mutate(taskData);
@@ -322,6 +333,32 @@ export default function TaskManagement() {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const addResponsibleUser = (userId: string) => {
+    if (!responsibleUsers.includes(userId)) {
+      setResponsibleUsers(prev => [...prev, userId]);
+    }
+  };
+
+  const removeResponsibleUser = (userId: string) => {
+    setResponsibleUsers(prev => prev.filter(id => id !== userId));
+  };
+
+  const addObserverUser = (userId: string) => {
+    if (!observerUsers.includes(userId)) {
+      setObserverUsers(prev => [...prev, userId]);
+    }
+  };
+
+  const removeObserverUser = (userId: string) => {
+    setObserverUsers(prev => prev.filter(id => id !== userId));
+  };
+
+  const getUserDisplayName = (userId: string) => {
+    const userList = users as any[];
+    const user = userList.find((u: any) => u.id === userId);
+    return user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email : userId;
   };
 
   const handleUpdateTask = (e: React.FormEvent<HTMLFormElement>) => {
@@ -496,8 +533,9 @@ export default function TaskManagement() {
                       </DialogHeader>
                       
                       <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-                        <TabsList className="grid w-full grid-cols-2">
+                        <TabsList className="grid w-full grid-cols-3">
                           <TabsTrigger value="details">Task Details</TabsTrigger>
+                          <TabsTrigger value="assignments">Assignments</TabsTrigger>
                           <TabsTrigger value="attachments">
                             Attachments ({attachments.length})
                           </TabsTrigger>
@@ -558,6 +596,145 @@ export default function TaskManagement() {
                               <Label htmlFor="tags">Tags (comma separated)</Label>
                               <Input id="tags" name="tags" placeholder="e.g. urgent, development, testing" />
                             </div>
+                          </TabsContent>
+                          
+                          <TabsContent value="assignments" className="space-y-4 mt-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              {/* Responsible Users */}
+                              <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                  <h4 className="font-medium text-gray-900 dark:text-white">
+                                    Responsible Users
+                                  </h4>
+                                  <Badge variant="secondary">
+                                    {responsibleUsers.length}
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                  Users who are accountable for task completion
+                                </p>
+                                
+                                <Select onValueChange={addResponsibleUser}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Add responsible user" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {(users as any[]).filter((user: any) => 
+                                      !responsibleUsers.includes(user.id)
+                                    ).map((user: any) => (
+                                      <SelectItem key={user.id} value={user.id}>
+                                        {getUserDisplayName(user.id)} - {user.role}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                
+                                {responsibleUsers.length > 0 && (
+                                  <div className="space-y-2">
+                                    {responsibleUsers.map((userId) => (
+                                      <div
+                                        key={userId}
+                                        className="flex items-center justify-between p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg"
+                                      >
+                                        <div className="flex items-center space-x-2">
+                                          <User className="h-4 w-4 text-blue-600" />
+                                          <span className="text-sm font-medium">
+                                            {getUserDisplayName(userId)}
+                                          </span>
+                                        </div>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => removeResponsibleUser(userId)}
+                                          className="text-red-600 hover:text-red-700"
+                                        >
+                                          <X className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Observer Users */}
+                              <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                  <h4 className="font-medium text-gray-900 dark:text-white">
+                                    Observer Users
+                                  </h4>
+                                  <Badge variant="secondary">
+                                    {observerUsers.length}
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                  Users who monitor task progress and provide feedback
+                                </p>
+                                
+                                <Select onValueChange={addObserverUser}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Add observer user" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {(users as any[]).filter((user: any) => 
+                                      !observerUsers.includes(user.id)
+                                    ).map((user: any) => (
+                                      <SelectItem key={user.id} value={user.id}>
+                                        {getUserDisplayName(user.id)} - {user.role}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                
+                                {observerUsers.length > 0 && (
+                                  <div className="space-y-2">
+                                    {observerUsers.map((userId) => (
+                                      <div
+                                        key={userId}
+                                        className="flex items-center justify-between p-2 bg-green-50 dark:bg-green-900/20 rounded-lg"
+                                      >
+                                        <div className="flex items-center space-x-2">
+                                          <User className="h-4 w-4 text-green-600" />
+                                          <span className="text-sm font-medium">
+                                            {getUserDisplayName(userId)}
+                                          </span>
+                                        </div>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => removeObserverUser(userId)}
+                                          className="text-red-600 hover:text-red-700"
+                                        >
+                                          <X className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Assignment Summary */}
+                            {(responsibleUsers.length > 0 || observerUsers.length > 0) && (
+                              <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                <h5 className="font-medium text-gray-900 dark:text-white mb-2">
+                                  Assignment Summary
+                                </h5>
+                                <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                                  <p>
+                                    <strong>Responsible:</strong> {responsibleUsers.length} user(s) assigned
+                                  </p>
+                                  <p>
+                                    <strong>Observers:</strong> {observerUsers.length} user(s) monitoring
+                                  </p>
+                                  <p className="text-xs mt-2 text-blue-600 dark:text-blue-400">
+                                    Responsible users will receive task notifications and are accountable for completion.
+                                    Observers will receive progress updates and can provide feedback.
+                                  </p>
+                                </div>
+                              </div>
+                            )}
                           </TabsContent>
                           
                           <TabsContent value="attachments" className="space-y-4 mt-4">
