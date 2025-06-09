@@ -11,22 +11,22 @@ export function VisionHeader() {
       <div className="container mx-auto px-6 py-4">
         <div className="flex items-center justify-between min-h-[80px]">
           {/* Logo and Title */}
-          <div className="flex items-center space-x-4 lg:space-x-6 flex-1">
-            <div className="flex-shrink-0 flex items-center justify-center">
+          <div className="flex items-center space-x-6 lg:space-x-8 flex-1">
+            <div className="flex-shrink-0 flex items-center justify-center bg-white/10 rounded-full p-2 backdrop-blur-sm">
               <img 
                 src={vision2047Logo} 
                 alt="Vision 2047 Maharashtra" 
-                className="h-16 lg:h-20 w-auto object-contain"
+                className="h-12 lg:h-16 w-auto object-contain"
               />
             </div>
-            <div className="text-left min-w-0 flex-1">
-              <h1 className="text-lg lg:text-2xl font-bold leading-tight">
+            <div className="text-left min-w-0 flex-1 ml-4">
+              <h1 className="text-lg lg:text-2xl font-bold leading-tight mb-1">
                 SP Ahilyanagar - Administrative Reform Program
               </h1>
-              <p className="text-xs lg:text-sm opacity-90 mt-1">
+              <p className="text-xs lg:text-sm opacity-90 mb-1">
                 150-Day Implementation Strategy | विकसित महाराष्ट्र 2047
               </p>
-              <p className="text-xs opacity-75 mt-0.5 hidden sm:block">
+              <p className="text-xs opacity-75 hidden sm:block">
                 May 6, 2025 - October 2, 2025 | भविष्यातील मार्गचाल
               </p>
             </div>
