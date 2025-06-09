@@ -19,6 +19,7 @@ import AIAssistant from "@/pages/ai-assistant";
 import AdminConsole from "@/pages/admin-console";
 import EnhancedAuth from "@/pages/enhanced-auth";
 import Forms from "@/pages/forms";
+import MasterFields from "@/pages/master-fields";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -45,6 +46,7 @@ function Router() {
               <Route path="/budget" component={BudgetTracking} />
               <Route path="/feedback" component={FeedbackSystem} />
               <Route path="/forms" component={Forms} />
+              <Route path="/master-fields" component={MasterFields} />
               <Route path="/timeline" component={TimelineView} />
               <Route path="/ai-assistant" component={AIAssistant} />
               <Route path="/admin" component={AdminConsole} />

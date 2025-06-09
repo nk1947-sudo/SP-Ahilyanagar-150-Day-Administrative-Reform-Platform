@@ -74,6 +74,12 @@ const navigationItems = [
     description: "Digital governance and SOPs"
   },
   {
+    title: "Master Fields",
+    href: "/master-fields",
+    icon: Settings,
+    description: "Dynamic field creation console"
+  },
+  {
     title: "Timeline View",
     href: "/timeline",
     icon: Calendar,
