@@ -1,13 +1,17 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from 'url';
 import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const viteLogger = createLogger();
 
+// Export the log function
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -19,6 +23,7 @@ export function log(message: string, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
+// Export the setupVite function
 export async function setupVite(app: Express, server: Server) {
   const serverOptions = {
     middlewareMode: true,
@@ -67,8 +72,8 @@ export async function setupVite(app: Express, server: Server) {
   });
 }
 
+// Export the serveStatic function
 export function serveStatic(app: Express) {
-  // Get absolute path to project root without relying on import.meta.dirname
   const rootDir = process.cwd();
   const publicDir = path.join(rootDir, "dist/public");
 
