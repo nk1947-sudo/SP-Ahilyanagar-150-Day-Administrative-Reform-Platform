@@ -77,6 +77,12 @@ const PRIORITY_COLORS = {
   high: "bg-red-100 text-red-800"
 };
 
+const CATEGORY_COLORS = {
+  "Administrative": "bg-blue-100 text-blue-800",
+  "E-Governance": "bg-green-100 text-green-800", 
+  "GAD Reform": "bg-purple-100 text-purple-800"
+};
+
 export default function FormsPage() {
   const [selectedFormType, setSelectedFormType] = useState<string>("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -87,13 +93,20 @@ export default function FormsPage() {
   const { toast } = useToast();
 
   // Form creation state
-  const [newForm, setNewForm] = useState({
+  const [newForm, setNewForm] = useState<{
+    title: string;
+    formType: string;
+    description: string;
+    content: any;
+    priority: "low" | "medium" | "high";
+    teamId: number | null;
+  }>({
     title: "",
     formType: "",
     description: "",
     content: {},
-    priority: "medium" as const,
-    teamId: null as number | null
+    priority: "medium",
+    teamId: null
   });
 
   // Fetch forms with filters
@@ -252,7 +265,7 @@ export default function FormsPage() {
         <div>
           <h1 className="text-3xl font-bold">Forms & SOPs Management</h1>
           <p className="text-muted-foreground mt-2">
-            Administrative and E-Governance forms with Standard Operating Procedures for SP Ahilyanagar
+            Administrative, E-Governance, and GAD Reform forms with Standard Operating Procedures for SP Ahilyanagar
           </p>
         </div>
         <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
@@ -350,6 +363,18 @@ export default function FormsPage() {
                     formType={newForm.formType}
                     content={newForm.content}
                     onContentChange={(content) => setNewForm(prev => ({ ...prev, content }))}
+                  />
+                </div>
+              )}
+
+              {/* GAD Reform Form Templates */}
+              {newForm.formType && FORM_TYPES.find(type => type.value === newForm.formType)?.category === "GAD Reform" && (
+                <div className="border-t pt-4">
+                  <Label className="text-base font-semibold">GAD Reform Form Template</Label>
+                  <GADReformFormTemplate
+                    formType={newForm.formType}
+                    formData={newForm.content}
+                    onDataChange={(content) => setNewForm(prev => ({ ...prev, content }))}
                   />
                 </div>
               )}
@@ -522,7 +547,9 @@ export default function FormsPage() {
                     <TableCell>
                       <div className="space-y-1">
                         <div>{getFormTypeLabel(form.formType)}</div>
-                        <Badge variant="secondary" className="text-xs">
+                        <Badge 
+                          className={`text-xs ${CATEGORY_COLORS[FORM_TYPES.find(type => type.value === form.formType)?.category as keyof typeof CATEGORY_COLORS] || CATEGORY_COLORS["Administrative"]}`}
+                        >
                           {FORM_TYPES.find(type => type.value === form.formType)?.category || "Administrative"}
                         </Badge>
                       </div>
@@ -692,6 +719,19 @@ export default function FormsPage() {
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+
+              {/* GAD Reform Form Data Display */}
+              {FORM_TYPES.find(type => type.value === selectedForm.formType)?.category === "GAD Reform" && selectedForm.content && Object.keys(selectedForm.content).length > 0 && (
+                <div className="border-t pt-4">
+                  <Label className="text-base font-semibold">GAD Reform Form Data</Label>
+                  <GADReformFormTemplate
+                    formType={selectedForm.formType}
+                    formData={selectedForm.content}
+                    onDataChange={() => {}}
+                    viewMode={true}
+                  />
                 </div>
               )}
 
