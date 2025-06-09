@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { EGovernanceFormTemplate } from "@/components/e-governance-form-templates";
+import { GADReformFormTemplate } from "@/components/gad-reform-form-templates";
 
 interface AdministrativeForm {
   id: number;
@@ -55,7 +56,12 @@ const FORM_TYPES = [
   { value: "api-integration", label: "API Integration Form", sop: "SOP-C5", category: "E-Governance" },
   { value: "citizen-service", label: "Citizen Service Digitization", sop: "SOP-C6", category: "E-Governance" },
   { value: "data-migration", label: "Data Migration Plan", sop: "SOP-C7", category: "E-Governance" },
-  { value: "system-integration", label: "System Integration Form", sop: "SOP-C8", category: "E-Governance" }
+  { value: "system-integration", label: "System Integration Form", sop: "SOP-C8", category: "E-Governance" },
+  
+  // GAD Reform Forms (Section D)
+  { value: "org-structure-review", label: "Organizational Structure Review", sop: "SOP-D1", category: "GAD Reform" },
+  { value: "promotion-pending-db", label: "Promotion Pending Database", sop: "SOP-D2", category: "GAD Reform" },
+  { value: "acr-digitization", label: "ACR Digitization Tracker", sop: "SOP-D3", category: "GAD Reform" }
 ];
 
 const STATUS_COLORS = {
@@ -441,6 +447,7 @@ export default function FormsPage() {
                   <SelectItem value="all">All Categories</SelectItem>
                   <SelectItem value="Administrative">Administrative Forms</SelectItem>
                   <SelectItem value="E-Governance">E-Governance Forms</SelectItem>
+                  <SelectItem value="GAD Reform">GAD Reform Forms</SelectItem>
                 </SelectContent>
               </Select>
             </div>
