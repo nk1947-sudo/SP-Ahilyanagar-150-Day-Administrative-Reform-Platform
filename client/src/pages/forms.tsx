@@ -407,7 +407,9 @@ export default function FormsPage() {
               <div className="border-t pt-4">
                 <Label className="text-base font-semibold">Custom Fields</Label>
                 <DynamicFieldRenderer
-                  section="forms"
+                  section={newForm.formType ? 
+                    FORM_TYPES.find(type => type.value === newForm.formType)?.category?.toLowerCase().replace(' ', '_').replace('-', '_') || "administrative" 
+                    : "administrative"}
                   onFieldChange={(fieldId, value) => {
                     setCustomFieldValues(prev => ({ ...prev, [fieldId]: value }));
                   }}

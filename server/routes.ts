@@ -806,6 +806,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/custom-field-definitions', isAuthenticated, async (req: any, res) => {
+    try {
+      const section = req.query.section as string;
+      const fields = await storage.getCustomFieldDefinitions(section);
+      res.json(fields);
+    } catch (error) {
+      console.error("Error fetching custom field definitions:", error);
+      res.status(500).json({ message: "Failed to fetch custom field definitions" });
+    }
+  });
+
   app.post('/api/custom-fields', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub || req.user?.id;
@@ -815,6 +826,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating custom field:", error);
       res.status(500).json({ message: "Failed to create custom field" });
+    }
+  });
+
+  app.post('/api/custom-field-definitions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id;
+      const fieldData = { ...req.body, createdBy: userId };
+      const field = await storage.createCustomFieldDefinition(fieldData);
+      res.status(201).json(field);
+    } catch (error) {
+      console.error("Error creating custom field definition:", error);
+      res.status(500).json({ message: "Failed to create custom field definition" });
     }
   });
 
@@ -829,6 +852,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put('/api/custom-field-definitions/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const field = await storage.updateCustomFieldDefinition(id, req.body);
+      res.json(field);
+    } catch (error) {
+      console.error("Error updating custom field definition:", error);
+      res.status(500).json({ message: "Failed to update custom field definition" });
+    }
+  });
+
   app.delete('/api/custom-fields/:id', isAuthenticated, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -837,6 +871,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting custom field:", error);
       res.status(500).json({ message: "Failed to delete custom field" });
+    }
+  });
+
+  app.delete('/api/custom-field-definitions/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteCustomFieldDefinition(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting custom field definition:", error);
+      res.status(500).json({ message: "Failed to delete custom field definition" });
     }
   });
 
@@ -857,6 +902,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { entityType, entityId } = req.params;
       const { values } = req.body;
       await storage.setCustomFieldValues(entityType, parseInt(entityId), values);
+      res.status(201).json({ message: "Custom field values saved" });
+    } catch (error) {
+      console.error("Error saving custom field values:", error);
+      res.status(500).json({ message: "Failed to save custom field values" });
+    }
+  });
+
+  app.post('/api/custom-field-values', isAuthenticated, async (req: any, res) => {
+    try {
+      const { entityType, entityId, values } = req.body;
+      await storage.setCustomFieldValues(entityType, entityId, values);
       res.status(201).json({ message: "Custom field values saved" });
     } catch (error) {
       console.error("Error saving custom field values:", error);
