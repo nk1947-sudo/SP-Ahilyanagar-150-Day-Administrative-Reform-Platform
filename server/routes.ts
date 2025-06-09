@@ -777,6 +777,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Administrative Forms endpoints
+  app.get('/api/forms', isAuthenticated, async (req, res) => {
+    try {
+      const { formType, status, submittedBy, teamId } = req.query;
+      const filters: any = {};
+      if (formType) filters.formType = formType as string;
+      if (status) filters.status = status as string;
+      if (submittedBy) filters.submittedBy = submittedBy as string;
+      if (teamId) filters.teamId = parseInt(teamId as string);
+      
+      const forms = await storage.getAdministrativeForms(filters);
+      res.json(forms);
+    } catch (error) {
+      console.error("Error fetching forms:", error);
+      res.status(500).json({ message: "Failed to fetch forms" });
+    }
+  });
+
+  app.get('/api/forms/:id', isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const form = await storage.getAdministrativeForm(id);
+      if (!form) {
+        return res.status(404).json({ message: "Form not found" });
+      }
+      res.json(form);
+    } catch (error) {
+      console.error("Error fetching form:", error);
+      res.status(500).json({ message: "Failed to fetch form" });
+    }
+  });
+
+  app.post('/api/forms', isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims?.sub || req.user?.id;
+      
+      // Helper function to get SOP reference
+      const getSopReference = (formType: string): string => {
+        const sopMap: Record<string, string> = {
+          'team-formation': 'SOP-A1',
+          'progress-report': 'SOP-A2', 
+          'meeting-minutes': 'SOP-A3',
+          'task-assignment': 'SOP-A4',
+          'risk-assessment': 'SOP-A5'
+        };
+        return sopMap[formType] || 'SOP-A0';
+      };
+      
+      const formData = {
+        ...req.body,
+        submittedBy: userId,
+        title: req.body.title || `${req.body.formType} - ${new Date().toLocaleDateString()}`,
+        sopReference: getSopReference(req.body.formType),
+      };
+      
+      const form = await storage.createAdministrativeForm(formData);
+      res.status(201).json(form);
+    } catch (error) {
+      console.error("Error creating form:", error);
+      res.status(500).json({ message: "Failed to create form" });
+    }
+  });
+
+  app.put('/api/forms/:id', isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const form = await storage.updateAdministrativeForm(id, req.body);
+      res.json(form);
+    } catch (error) {
+      console.error("Error updating form:", error);
+      res.status(500).json({ message: "Failed to update form" });
+    }
+  });
+
+  app.delete('/api/forms/:id', isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteAdministrativeForm(id);
+      res.json({ message: "Form deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting form:", error);
+      res.status(500).json({ message: "Failed to delete form" });
+    }
+  });
+
+  app.post('/api/forms/:id/approve', isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const userId = (req.user as any).claims?.sub || req.user?.id;
+      const { reviewNotes } = req.body;
+      
+      const form = await storage.approveAdministrativeForm(id, userId, reviewNotes);
+      res.json(form);
+    } catch (error) {
+      console.error("Error approving form:", error);
+      res.status(500).json({ message: "Failed to approve form" });
+    }
+  });
+
+  app.post('/api/forms/:id/reject', isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const userId = (req.user as any).claims?.sub || req.user?.id;
+      const { rejectionReason } = req.body;
+      
+      if (!rejectionReason) {
+        return res.status(400).json({ message: "Rejection reason is required" });
+      }
+      
+      const form = await storage.rejectAdministrativeForm(id, userId, rejectionReason);
+      res.json(form);
+    } catch (error) {
+      console.error("Error rejecting form:", error);
+      res.status(500).json({ message: "Failed to reject form" });
+    }
+  });
+
   // RBAC and Security Management Routes
   
   // Users endpoint for task assignment

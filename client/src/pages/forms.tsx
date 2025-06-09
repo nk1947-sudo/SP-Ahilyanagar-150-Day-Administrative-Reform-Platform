@@ -1,566 +1,600 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Plus, FileText, Clock, CheckCircle, XCircle, Edit, Trash2, Eye, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { 
-  FileText, 
-  Users, 
-  ClipboardList, 
-  Calendar,
-  AlertTriangle,
-  CheckCircle,
-  Plus,
-  Download,
-  Search,
-  Filter
-} from "lucide-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { format } from "date-fns";
 
-export default function Forms() {
-  const { isAuthenticated, isLoading } = useAuth();
+interface AdministrativeForm {
+  id: number;
+  title: string;
+  formType: string;
+  description: string | null;
+  content: any;
+  status: "draft" | "submitted" | "approved" | "rejected";
+  submittedBy: string;
+  submittedAt: Date | null;
+  approvedBy: string | null;
+  approvedAt: Date | null;
+  rejectionReason: string | null;
+  reviewNotes: string | null;
+  sopReference: string;
+  teamId: number | null;
+  priority: "low" | "medium" | "high";
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
+
+const FORM_TYPES = [
+  { value: "team-formation", label: "Team Formation Form", sop: "SOP-A1" },
+  { value: "progress-report", label: "Progress Report", sop: "SOP-A2" },
+  { value: "meeting-minutes", label: "Meeting Minutes", sop: "SOP-A3" },
+  { value: "task-assignment", label: "Task Assignment Form", sop: "SOP-A4" },
+  { value: "risk-assessment", label: "Risk Assessment Form", sop: "SOP-A5" },
+  { value: "budget-request", label: "Budget Request Form", sop: "SOP-A6" },
+  { value: "resource-allocation", label: "Resource Allocation", sop: "SOP-A7" },
+  { value: "performance-review", label: "Performance Review", sop: "SOP-A8" }
+];
+
+const STATUS_COLORS = {
+  draft: "bg-gray-100 text-gray-800",
+  submitted: "bg-blue-100 text-blue-800", 
+  approved: "bg-green-100 text-green-800",
+  rejected: "bg-red-100 text-red-800"
+};
+
+const PRIORITY_COLORS = {
+  low: "bg-gray-100 text-gray-600",
+  medium: "bg-yellow-100 text-yellow-800",
+  high: "bg-red-100 text-red-800"
+};
+
+export default function FormsPage() {
+  const [selectedFormType, setSelectedFormType] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [selectedForm, setSelectedForm] = useState<AdministrativeForm | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const { toast } = useToast();
-  const [activeForm, setActiveForm] = useState("team-formation");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
-      return;
-    }
-  }, [isAuthenticated, isLoading, toast]);
-
-  const { data: forms = [] } = useQuery({
-    queryKey: ["/api/forms"],
-    retry: false,
+  // Form creation state
+  const [newForm, setNewForm] = useState({
+    title: "",
+    formType: "",
+    description: "",
+    content: {},
+    priority: "medium" as const,
+    teamId: null as number | null
   });
 
+  // Fetch forms with filters
+  const { data: forms = [], isLoading } = useQuery<AdministrativeForm[]>({
+    queryKey: ["/api/forms", selectedFormType, statusFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedFormType && selectedFormType !== "all") params.append("formType", selectedFormType);
+      if (statusFilter && statusFilter !== "all") params.append("status", statusFilter);
+      
+      const response = await fetch(`/api/forms?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch forms");
+      return response.json();
+    }
+  });
+
+  // Fetch teams for dropdown
   const { data: teams = [] } = useQuery({
     queryKey: ["/api/teams"],
-    retry: false,
+    queryFn: async () => {
+      const response = await fetch("/api/teams");
+      if (!response.ok) throw new Error("Failed to fetch teams");
+      return response.json();
+    }
   });
 
-  const { data: users = [] } = useQuery({
-    queryKey: ["/api/users"],
-    retry: false,
-  });
-
+  // Create form mutation
   const createFormMutation = useMutation({
-    mutationFn: async (formData: any) => {
-      await apiRequest("POST", "/api/forms", formData);
+    mutationFn: async (formData: typeof newForm) => {
+      const response = await apiRequest("POST", "/api/forms", formData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/forms"] });
+      setIsCreateModalOpen(false);
+      resetForm();
+      toast({
+        title: "Success",
+        description: "Administrative form created successfully"
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error", 
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Delete form mutation
+  const deleteFormMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/forms/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/forms"] });
       toast({
         title: "Success",
-        description: "Form submitted successfully",
+        description: "Form deleted successfully"
       });
     },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
+    onError: (error: Error) => {
       toast({
         title: "Error",
-        description: "Failed to submit form",
-        variant: "destructive",
+        description: error.message,
+        variant: "destructive"
       });
-    },
+    }
   });
 
-  if (isLoading || !isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  const handleTeamFormationSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    
-    const teamFormData = {
-      formType: "team-formation",
-      teamName: formData.get("teamName"),
-      teamLeader: {
-        name: formData.get("leaderName"),
-        designation: formData.get("leaderDesignation"),
-        mobile: formData.get("leaderMobile"),
-        email: formData.get("leaderEmail"),
-        employeeId: formData.get("leaderEmployeeId"),
-        yearsOfService: formData.get("leaderYearsOfService"),
-      },
-      deputyLeader: {
-        name: formData.get("deputyName"),
-        designation: formData.get("deputyDesignation"),
-        mobile: formData.get("deputyMobile"),
-        email: formData.get("deputyEmail"),
-      },
-      coreMembers: [],
-      responsibilities: Array.from(formData.getAll("responsibilities")),
-      authorityLevels: {
-        financialPowers: formData.get("financialPowers"),
-        subjectTo: formData.get("subjectTo"),
-        decisionMaking: formData.get("decisionMaking"),
-        externalCoordination: formData.get("externalCoordination"),
-      },
-      performanceTargets: {
-        thirtyDay: formData.get("thirtyDayTarget"),
-        sixtyDay: formData.get("sixtyDayTarget"),
-        ninetyDay: formData.get("ninetyDayTarget"),
-        oneHundredFiftyDay: formData.get("oneHundredFiftyDayTarget"),
-      },
-      accountability: {
-        reportSubmission: formData.get("reportSubmission"),
-        reportTo: formData.get("reportTo"),
-        reviewMeeting: formData.get("reviewMeeting"),
-        reviewTime: formData.get("reviewTime"),
-      },
-    };
-
-    createFormMutation.mutate(teamFormData);
-  };
-
-  const handleProgressReportSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    
-    const progressReportData = {
-      formType: "progress-report",
-      date: formData.get("reportDate"),
-      day: formData.get("reportDay"),
-      team: formData.get("reportTeam"),
-      keyAchievements: [
-        { achievement: formData.get("achievement1"), complete: formData.get("complete1") },
-        { achievement: formData.get("achievement2"), complete: formData.get("complete2") },
-        { achievement: formData.get("achievement3"), complete: formData.get("complete3") },
-      ],
-      competitionScore: {
-        website: formData.get("websiteScore"),
-        aapleSarkar: formData.get("aapleSarkarScore"),
-        eOffice: formData.get("eOfficeScore"),
-        dashboard: formData.get("dashboardScore"),
-        novelTech: formData.get("novelTechScore"),
-      },
-      tasksStatus: {
-        totalAssigned: formData.get("totalAssigned"),
-        completedToday: formData.get("completedToday"),
-        inProgress: formData.get("inProgress"),
-        delayed: formData.get("delayed"),
-        criticalPath: formData.get("criticalPath"),
-      },
-      resourceUtilization: {
-        teamPresent: formData.get("teamPresent"),
-        totalTeam: formData.get("totalTeam"),
-        externalSupport: formData.get("externalSupport"),
-        amountSpent: formData.get("amountSpent"),
-        purpose: formData.get("purpose"),
-      },
-      issues: {
-        priority: formData.get("issuePriority"),
-        issue: formData.get("issue"),
-        impact: formData.get("impact"),
-        actionTaken: formData.get("actionTaken"),
-        supportRequired: formData.get("supportRequired"),
-      },
-      nextDayPlan: [
-        formData.get("plan1"),
-        formData.get("plan2"),
-        formData.get("plan3"),
-      ],
-      citizenInteractions: formData.get("citizenInteractions"),
-      feedbackScore: formData.get("feedbackScore"),
-    };
-
-    createFormMutation.mutate(progressReportData);
-  };
-
-  const formCategories = [
-    {
-      id: "team-formation",
-      title: "Team Formation & Role Assignment",
-      description: "Formal team constitution and role assignment for 150-day implementation",
-      icon: <Users className="h-5 w-5" />,
-      color: "bg-blue-500",
-      sopRef: "SOP-A1"
+  // Approve/Reject mutations
+  const approveFormMutation = useMutation({
+    mutationFn: async ({ id, reviewNotes }: { id: number; reviewNotes?: string }) => {
+      await apiRequest("POST", `/api/forms/${id}/approve`, { reviewNotes });
     },
-    {
-      id: "progress-report",
-      title: "Daily Progress Report",
-      description: "Standardized daily progress tracking and issue escalation",
-      icon: <ClipboardList className="h-5 w-5" />,
-      color: "bg-green-500",
-      sopRef: "SOP-A2"
-    },
-    {
-      id: "meeting-minutes",
-      title: "Meeting Minutes",
-      description: "Standardized recording of all official meetings",
-      icon: <Calendar className="h-5 w-5" />,
-      color: "bg-orange-500",
-      sopRef: "SOP-A3"
-    },
-    {
-      id: "task-assignment",
-      title: "Task Assignment & Tracking",
-      description: "Systematic task assignment and progress tracking",
-      icon: <FileText className="h-5 w-5" />,
-      color: "bg-purple-500",
-      sopRef: "SOP-A4"
-    },
-    {
-      id: "risk-assessment",
-      title: "Risk Assessment & Mitigation",
-      description: "Proactive identification and management of implementation risks",
-      icon: <AlertTriangle className="h-5 w-5" />,
-      color: "bg-red-500",
-      sopRef: "SOP-A5"
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/forms"] });
+      toast({
+        title: "Success",
+        description: "Form approved successfully"
+      });
     }
-  ];
+  });
+
+  const rejectFormMutation = useMutation({
+    mutationFn: async ({ id, rejectionReason }: { id: number; rejectionReason: string }) => {
+      await apiRequest("POST", `/api/forms/${id}/reject`, { rejectionReason });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/forms"] });
+      toast({
+        title: "Success", 
+        description: "Form rejected successfully"
+      });
+    }
+  });
+
+  const resetForm = () => {
+    setNewForm({
+      title: "",
+      formType: "",
+      description: "",
+      content: {},
+      priority: "medium",
+      teamId: null
+    });
+  };
+
+  const handleCreateForm = () => {
+    if (!newForm.formType || !newForm.title) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+    createFormMutation.mutate(newForm);
+  };
+
+  const handleViewForm = (form: AdministrativeForm) => {
+    setSelectedForm(form);
+    setIsViewModalOpen(true);
+  };
+
+  const getFormTypeLabel = (type: string) => {
+    return FORM_TYPES.find(ft => ft.value === type)?.label || type;
+  };
+
+  const getSopReference = (type: string) => {
+    return FORM_TYPES.find(ft => ft.value === type)?.sop || "SOP-A0";
+  };
+
+  const filteredForms = forms.filter(form => {
+    if (selectedFormType && selectedFormType !== "all" && form.formType !== selectedFormType) return false;
+    if (statusFilter && statusFilter !== "all" && form.status !== statusFilter) return false;
+    return true;
+  });
+
+  // Statistics
+  const stats = {
+    total: forms.length,
+    draft: forms.filter(f => f.status === "draft").length,
+    submitted: forms.filter(f => f.status === "submitted").length,
+    approved: forms.filter(f => f.status === "approved").length,
+    rejected: forms.filter(f => f.status === "rejected").length
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="container mx-auto px-6 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                Administrative Forms & SOPs
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-2">
-                Section A: Standardized forms for 150-day implementation strategy
-              </p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Download All SOPs
-              </Button>
-            </div>
-          </div>
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold">Administrative Forms & SOPs</h1>
+          <p className="text-muted-foreground mt-2">
+            Manage administrative forms and Standard Operating Procedures for SP Ahilyanagar
+          </p>
         </div>
-
-        {/* Search and Filter */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Search forms..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <div className="flex items-center space-x-2">
-            <Filter className="h-4 w-4 text-gray-500" />
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Filter status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Forms</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="submitted">Submitted</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Form Categories Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {formCategories.map((category) => (
-            <Card 
-              key={category.id}
-              className={`cursor-pointer transition-all duration-200 hover:shadow-lg border-l-4 ${
-                activeForm === category.id 
-                  ? 'border-l-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                  : 'border-l-gray-300 hover:border-l-blue-400'
-              }`}
-              onClick={() => setActiveForm(category.id)}
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className={`p-2 rounded-md ${category.color} text-white`}>
-                    {category.icon}
-                  </div>
-                  <Badge variant="secondary">{category.sopRef}</Badge>
+        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Form
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Create New Administrative Form</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="form-type">Form Type *</Label>
+                  <Select value={newForm.formType} onValueChange={(value) => 
+                    setNewForm(prev => ({ ...prev, formType: value }))
+                  }>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select form type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FORM_TYPES.map(type => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label} ({type.sop})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <CardTitle className="text-lg">{category.title}</CardTitle>
-                <CardDescription>{category.description}</CardDescription>
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
-
-        {/* Active Form */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-xl">
-                  {formCategories.find(f => f.id === activeForm)?.title}
-                </CardTitle>
-                <CardDescription>
-                  Reference: {formCategories.find(f => f.id === activeForm)?.sopRef} - 
-                  Ahilyanagar Police 150-Day Implementation
-                </CardDescription>
+                <div>
+                  <Label htmlFor="priority">Priority</Label>
+                  <Select value={newForm.priority} onValueChange={(value: "low" | "medium" | "high") => 
+                    setNewForm(prev => ({ ...prev, priority: value }))
+                  }>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Download Template
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {/* Team Formation Form */}
-            {activeForm === "team-formation" && (
-              <form onSubmit={handleTeamFormationSubmit} className="space-y-6">
-                <div className="grid gap-4">
-                  <div>
-                    <Label htmlFor="teamName">Team Name</Label>
-                    <Select name="teamName" required>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select team" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ALPHA">ALPHA - e-Governance</SelectItem>
-                        <SelectItem value="BRAVO">BRAVO - GAD Reforms</SelectItem>
-                        <SelectItem value="CHARLIE">CHARLIE - Vision 2047</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+              
+              <div>
+                <Label htmlFor="title">Title *</Label>
+                <Input
+                  id="title"
+                  value={newForm.title}
+                  onChange={(e) => setNewForm(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="Enter form title"
+                />
+              </div>
 
-                <Separator />
-
-                {/* Team Leader Section */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Team Leader Details</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="leaderName">Name</Label>
-                      <Input id="leaderName" name="leaderName" required />
-                    </div>
-                    <div>
-                      <Label htmlFor="leaderDesignation">Designation</Label>
-                      <Input id="leaderDesignation" name="leaderDesignation" required />
-                    </div>
-                    <div>
-                      <Label htmlFor="leaderMobile">Mobile</Label>
-                      <Input id="leaderMobile" name="leaderMobile" type="tel" required />
-                    </div>
-                    <div>
-                      <Label htmlFor="leaderEmail">Email</Label>
-                      <Input id="leaderEmail" name="leaderEmail" type="email" required />
-                    </div>
-                    <div>
-                      <Label htmlFor="leaderEmployeeId">Employee ID</Label>
-                      <Input id="leaderEmployeeId" name="leaderEmployeeId" required />
-                    </div>
-                    <div>
-                      <Label htmlFor="leaderYearsOfService">Years of Service</Label>
-                      <Input id="leaderYearsOfService" name="leaderYearsOfService" type="number" required />
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Deputy Leader Section */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Deputy Leader Details</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="deputyName">Name</Label>
-                      <Input id="deputyName" name="deputyName" required />
-                    </div>
-                    <div>
-                      <Label htmlFor="deputyDesignation">Designation</Label>
-                      <Input id="deputyDesignation" name="deputyDesignation" required />
-                    </div>
-                    <div>
-                      <Label htmlFor="deputyMobile">Mobile</Label>
-                      <Input id="deputyMobile" name="deputyMobile" type="tel" required />
-                    </div>
-                    <div>
-                      <Label htmlFor="deputyEmail">Email</Label>
-                      <Input id="deputyEmail" name="deputyEmail" type="email" required />
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Performance Targets */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Performance Targets</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="thirtyDayTarget">30-Day Target</Label>
-                      <Textarea id="thirtyDayTarget" name="thirtyDayTarget" rows={2} required />
-                    </div>
-                    <div>
-                      <Label htmlFor="sixtyDayTarget">60-Day Target</Label>
-                      <Textarea id="sixtyDayTarget" name="sixtyDayTarget" rows={2} required />
-                    </div>
-                    <div>
-                      <Label htmlFor="ninetyDayTarget">90-Day Target</Label>
-                      <Textarea id="ninetyDayTarget" name="ninetyDayTarget" rows={2} required />
-                    </div>
-                    <div>
-                      <Label htmlFor="oneHundredFiftyDayTarget">150-Day Target</Label>
-                      <Textarea id="oneHundredFiftyDayTarget" name="oneHundredFiftyDayTarget" rows={2} required />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-4">
-                  <Button type="button" variant="outline">
-                    Save as Draft
-                  </Button>
-                  <Button type="submit" disabled={createFormMutation.isPending}>
-                    {createFormMutation.isPending ? "Submitting..." : "Submit Form"}
-                  </Button>
-                </div>
-              </form>
-            )}
-
-            {/* Progress Report Form */}
-            {activeForm === "progress-report" && (
-              <form onSubmit={handleProgressReportSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="reportDate">Date</Label>
-                    <Input id="reportDate" name="reportDate" type="date" required />
-                  </div>
-                  <div>
-                    <Label htmlFor="reportDay">Day (x/150)</Label>
-                    <Input id="reportDay" name="reportDay" type="number" min="1" max="150" required />
-                  </div>
-                  <div>
-                    <Label htmlFor="reportTeam">Team</Label>
-                    <Select name="reportTeam" required>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select team" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ALPHA">ALPHA</SelectItem>
-                        <SelectItem value="BRAVO">BRAVO</SelectItem>
-                        <SelectItem value="CHARLIE">CHARLIE</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Key Achievements */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Key Achievements (Quantifiable metrics only)</h3>
-                  <div className="space-y-4">
-                    {[1, 2, 3].map((num) => (
-                      <div key={num} className="grid grid-cols-4 gap-4">
-                        <div className="col-span-3">
-                          <Label htmlFor={`achievement${num}`}>Achievement {num}</Label>
-                          <Input id={`achievement${num}`} name={`achievement${num}`} placeholder="Enter achievement" />
-                        </div>
-                        <div>
-                          <Label htmlFor={`complete${num}`}>% Complete</Label>
-                          <Input id={`complete${num}`} name={`complete${num}`} type="number" min="0" max="100" placeholder="0" />
-                        </div>
-                      </div>
+              <div>
+                <Label htmlFor="team">Assigned Team</Label>
+                <Select value={newForm.teamId?.toString() || ""} onValueChange={(value) => 
+                  setNewForm(prev => ({ ...prev, teamId: value ? parseInt(value) : null }))
+                }>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select team (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No team assigned</SelectItem>
+                    {teams.map((team: any) => (
+                      <SelectItem key={team.id} value={team.id.toString()}>
+                        {team.name}
+                      </SelectItem>
                     ))}
-                  </div>
-                </div>
+                  </SelectContent>
+                </Select>
+              </div>
 
-                <Separator />
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={newForm.description}
+                  onChange={(e) => setNewForm(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Enter form description"
+                  rows={3}
+                />
+              </div>
 
-                {/* Competition Score Update */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Competition Score Update</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    <div>
-                      <Label htmlFor="websiteScore">Website (/40)</Label>
-                      <Input id="websiteScore" name="websiteScore" type="number" min="0" max="40" />
-                    </div>
-                    <div>
-                      <Label htmlFor="aapleSarkarScore">Aaple Sarkar (/60)</Label>
-                      <Input id="aapleSarkarScore" name="aapleSarkarScore" type="number" min="0" max="60" />
-                    </div>
-                    <div>
-                      <Label htmlFor="eOfficeScore">E-Office (/25)</Label>
-                      <Input id="eOfficeScore" name="eOfficeScore" type="number" min="0" max="25" />
-                    </div>
-                    <div>
-                      <Label htmlFor="dashboardScore">Dashboard (/15)</Label>
-                      <Input id="dashboardScore" name="dashboardScore" type="number" min="0" max="15" />
-                    </div>
-                    <div>
-                      <Label htmlFor="novelTechScore">Novel Tech (/60)</Label>
-                      <Input id="novelTechScore" name="novelTechScore" type="number" min="0" max="60" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-4">
-                  <Button type="button" variant="outline">
-                    Save as Draft
-                  </Button>
-                  <Button type="submit" disabled={createFormMutation.isPending}>
-                    {createFormMutation.isPending ? "Submitting..." : "Submit Report"}
-                  </Button>
-                </div>
-              </form>
-            )}
-
-            {/* Other forms - placeholder content */}
-            {!["team-formation", "progress-report"].includes(activeForm) && (
-              <div className="text-center py-12">
-                <FileText className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                  Form Template Coming Soon
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  This form template is being prepared according to SOP guidelines.
-                </p>
-                <Button variant="outline">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download PDF Template
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateForm} disabled={createFormMutation.isPending}>
+                  {createFormMutation.isPending ? "Creating..." : "Create Form"}
                 </Button>
               </div>
-            )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <FileText className="h-8 w-8 text-blue-600" />
+              <div>
+                <p className="text-2xl font-bold">{stats.total}</p>
+                <p className="text-sm text-muted-foreground">Total Forms</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <Edit className="h-8 w-8 text-gray-600" />
+              <div>
+                <p className="text-2xl font-bold">{stats.draft}</p>
+                <p className="text-sm text-muted-foreground">Drafts</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <Clock className="h-8 w-8 text-blue-600" />
+              <div>
+                <p className="text-2xl font-bold">{stats.submitted}</p>
+                <p className="text-sm text-muted-foreground">Submitted</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <CheckCircle className="h-8 w-8 text-green-600" />
+              <div>
+                <p className="text-2xl font-bold">{stats.approved}</p>
+                <p className="text-sm text-muted-foreground">Approved</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <XCircle className="h-8 w-8 text-red-600" />
+              <div>
+                <p className="text-2xl font-bold">{stats.rejected}</p>
+                <p className="text-sm text-muted-foreground">Rejected</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Filters */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Filters</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex space-x-4">
+            <div className="flex-1">
+              <Label>Form Type</Label>
+              <Select value={selectedFormType} onValueChange={setSelectedFormType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All form types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Form Types</SelectItem>
+                  {FORM_TYPES.map(type => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1">
+              <Label>Status</Label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="submitted">Submitted</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Forms Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Administrative Forms</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex justify-center p-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>SOP Reference</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Priority</TableHead>
+                  <TableHead>Submitted</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredForms.map((form) => (
+                  <TableRow key={form.id}>
+                    <TableCell className="font-medium">{form.title}</TableCell>
+                    <TableCell>{getFormTypeLabel(form.formType)}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{form.sopReference}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={STATUS_COLORS[form.status]}>
+                        {form.status.charAt(0).toUpperCase() + form.status.slice(1)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={PRIORITY_COLORS[form.priority]}>
+                        {form.priority.charAt(0).toUpperCase() + form.priority.slice(1)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {form.submittedAt ? format(new Date(form.submittedAt), "MMM dd, yyyy") : "-"}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewForm(form)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {form.status === "submitted" && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => approveFormMutation.mutate({ id: form.id })}
+                            >
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => rejectFormMutation.mutate({ 
+                                id: form.id, 
+                                rejectionReason: "Form requires revision" 
+                              })}
+                            >
+                              <XCircle className="h-4 w-4 text-red-600" />
+                            </Button>
+                          </>
+                        )}
+                        {form.status === "draft" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteFormMutation.mutate(form.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* View Form Modal */}
+      <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Form Details</DialogTitle>
+          </DialogHeader>
+          {selectedForm && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Title</Label>
+                  <p className="font-medium">{selectedForm.title}</p>
+                </div>
+                <div>
+                  <Label>Type</Label>
+                  <p>{getFormTypeLabel(selectedForm.formType)}</p>
+                </div>
+                <div>
+                  <Label>SOP Reference</Label>
+                  <Badge variant="outline">{selectedForm.sopReference}</Badge>
+                </div>
+                <div>
+                  <Label>Status</Label>
+                  <Badge className={STATUS_COLORS[selectedForm.status]}>
+                    {selectedForm.status.charAt(0).toUpperCase() + selectedForm.status.slice(1)}
+                  </Badge>
+                </div>
+                <div>
+                  <Label>Priority</Label>
+                  <Badge className={PRIORITY_COLORS[selectedForm.priority]}>
+                    {selectedForm.priority.charAt(0).toUpperCase() + selectedForm.priority.slice(1)}
+                  </Badge>
+                </div>
+                <div>
+                  <Label>Submitted</Label>
+                  <p>{selectedForm.submittedAt ? format(new Date(selectedForm.submittedAt), "PPp") : "Not submitted"}</p>
+                </div>
+              </div>
+              
+              {selectedForm.description && (
+                <div>
+                  <Label>Description</Label>
+                  <p className="mt-1 whitespace-pre-wrap">{selectedForm.description}</p>
+                </div>
+              )}
+
+              {selectedForm.reviewNotes && (
+                <div>
+                  <Label>Review Notes</Label>
+                  <p className="mt-1 whitespace-pre-wrap">{selectedForm.reviewNotes}</p>
+                </div>
+              )}
+
+              {selectedForm.rejectionReason && (
+                <div>
+                  <Label>Rejection Reason</Label>
+                  <p className="mt-1 text-red-600 whitespace-pre-wrap">{selectedForm.rejectionReason}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

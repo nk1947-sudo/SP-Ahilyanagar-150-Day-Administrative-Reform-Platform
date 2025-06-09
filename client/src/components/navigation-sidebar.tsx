@@ -32,6 +32,12 @@ const navigationItems = [
     description: "Track and manage tasks"
   },
   {
+    title: "Administrative Forms",
+    href: "/forms",
+    icon: ClipboardList,
+    description: "Forms and SOPs management"
+  },
+  {
     title: "Team Collaboration",
     href: "/team",
     icon: Users,
