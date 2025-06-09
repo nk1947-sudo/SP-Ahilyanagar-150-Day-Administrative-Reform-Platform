@@ -36,14 +36,25 @@ interface AdministrativeForm {
 }
 
 const FORM_TYPES = [
-  { value: "team-formation", label: "Team Formation Form", sop: "SOP-A1" },
-  { value: "progress-report", label: "Progress Report", sop: "SOP-A2" },
-  { value: "meeting-minutes", label: "Meeting Minutes", sop: "SOP-A3" },
-  { value: "task-assignment", label: "Task Assignment Form", sop: "SOP-A4" },
-  { value: "risk-assessment", label: "Risk Assessment Form", sop: "SOP-A5" },
-  { value: "budget-request", label: "Budget Request Form", sop: "SOP-A6" },
-  { value: "resource-allocation", label: "Resource Allocation", sop: "SOP-A7" },
-  { value: "performance-review", label: "Performance Review", sop: "SOP-A8" }
+  // Administrative Forms (Section A)
+  { value: "team-formation", label: "Team Formation Form", sop: "SOP-A1", category: "Administrative" },
+  { value: "progress-report", label: "Progress Report", sop: "SOP-A2", category: "Administrative" },
+  { value: "meeting-minutes", label: "Meeting Minutes", sop: "SOP-A3", category: "Administrative" },
+  { value: "task-assignment", label: "Task Assignment Form", sop: "SOP-A4", category: "Administrative" },
+  { value: "risk-assessment", label: "Risk Assessment Form", sop: "SOP-A5", category: "Administrative" },
+  { value: "budget-request", label: "Budget Request Form", sop: "SOP-A6", category: "Administrative" },
+  { value: "resource-allocation", label: "Resource Allocation", sop: "SOP-A7", category: "Administrative" },
+  { value: "performance-review", label: "Performance Review", sop: "SOP-A8", category: "Administrative" },
+  
+  // E-Governance Forms (Section C)
+  { value: "aaple-sarkar-integration", label: "Aaple Sarkar Service Integration", sop: "SOP-C1", category: "E-Governance" },
+  { value: "gpr-analysis", label: "GPR (Government Process Re-engineering)", sop: "SOP-C2", category: "E-Governance" },
+  { value: "e-office-tracker", label: "E-Office Implementation Tracker", sop: "SOP-C3", category: "E-Governance" },
+  { value: "digital-signature", label: "Digital Signature Implementation", sop: "SOP-C4", category: "E-Governance" },
+  { value: "api-integration", label: "API Integration Form", sop: "SOP-C5", category: "E-Governance" },
+  { value: "citizen-service", label: "Citizen Service Digitization", sop: "SOP-C6", category: "E-Governance" },
+  { value: "data-migration", label: "Data Migration Plan", sop: "SOP-C7", category: "E-Governance" },
+  { value: "system-integration", label: "System Integration Form", sop: "SOP-C8", category: "E-Governance" }
 ];
 
 const STATUS_COLORS = {
@@ -61,6 +72,7 @@ const PRIORITY_COLORS = {
 
 export default function FormsPage() {
   const [selectedFormType, setSelectedFormType] = useState<string>("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedForm, setSelectedForm] = useState<AdministrativeForm | null>(null);
@@ -79,7 +91,7 @@ export default function FormsPage() {
 
   // Fetch forms with filters
   const { data: forms = [], isLoading } = useQuery<AdministrativeForm[]>({
-    queryKey: ["/api/forms", selectedFormType, statusFilter],
+    queryKey: ["/api/forms", selectedFormType, categoryFilter, statusFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (selectedFormType && selectedFormType !== "all") params.append("formType", selectedFormType);
@@ -229,9 +241,9 @@ export default function FormsPage() {
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold">Administrative Forms & SOPs</h1>
+          <h1 className="text-3xl font-bold">Forms & SOPs Management</h1>
           <p className="text-muted-foreground mt-2">
-            Manage administrative forms and Standard Operating Procedures for SP Ahilyanagar
+            Administrative and E-Governance forms with Standard Operating Procedures for SP Ahilyanagar
           </p>
         </div>
         <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
@@ -405,6 +417,19 @@ export default function FormsPage() {
         <CardContent>
           <div className="flex space-x-4">
             <div className="flex-1">
+              <Label>Category</Label>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="Administrative">Administrative Forms</SelectItem>
+                  <SelectItem value="E-Governance">E-Governance Forms</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1">
               <Label>Form Type</Label>
               <Select value={selectedFormType} onValueChange={setSelectedFormType}>
                 <SelectTrigger>
@@ -412,11 +437,13 @@ export default function FormsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Form Types</SelectItem>
-                  {FORM_TYPES.map(type => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
+                  {FORM_TYPES
+                    .filter(type => categoryFilter === "all" || type.category === categoryFilter)
+                    .map(type => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
@@ -442,7 +469,11 @@ export default function FormsPage() {
       {/* Forms Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Administrative Forms</CardTitle>
+          <CardTitle>
+            {categoryFilter === "Administrative" ? "Administrative Forms" :
+             categoryFilter === "E-Governance" ? "E-Governance Forms" :
+             "All Forms"}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (

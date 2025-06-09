@@ -68,10 +68,10 @@ const navigationItems = [
     description: "Stakeholder feedback"
   },
   {
-    title: "Administrative Forms",
+    title: "E-Governance Forms",
     href: "/forms",
     icon: ClipboardList,
-    description: "Official forms and SOPs"
+    description: "Digital governance and SOPs"
   },
   {
     title: "Timeline View",
