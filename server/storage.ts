@@ -13,6 +13,7 @@ import {
   systemSettings,
   chatConversations,
   chatMessages,
+  administrativeForms,
   type User,
   type UpsertUser,
   type Team,
@@ -41,6 +42,8 @@ import {
   type InsertChatConversation,
   type ChatMessage,
   type InsertChatMessage,
+  type AdministrativeForm,
+  type InsertAdministrativeForm,
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, desc, and, gte, lte, ilike, sql } from "drizzle-orm";
@@ -128,6 +131,15 @@ export interface IStorage {
   // Activity operations
   getActivities(limit?: number): Promise<Activity[]>;
   createActivity(activity: InsertActivity): Promise<Activity>;
+  
+  // Administrative Forms operations
+  getAdministrativeForms(filters?: { formType?: string; status?: string; submittedBy?: string; teamId?: number }): Promise<AdministrativeForm[]>;
+  getAdministrativeForm(id: number): Promise<AdministrativeForm | undefined>;
+  createAdministrativeForm(form: InsertAdministrativeForm): Promise<AdministrativeForm>;
+  updateAdministrativeForm(id: number, form: Partial<InsertAdministrativeForm>): Promise<AdministrativeForm>;
+  deleteAdministrativeForm(id: number): Promise<void>;
+  approveAdministrativeForm(id: number, approvedBy: string, reviewNotes?: string): Promise<AdministrativeForm>;
+  rejectAdministrativeForm(id: number, rejectedBy: string, rejectionReason: string): Promise<AdministrativeForm>;
   
   // Dashboard statistics
   getDashboardStats(): Promise<{
@@ -629,6 +641,109 @@ export class DatabaseStorage implements IStorage {
       budgetAllocated: parseFloat(budget.allocated || "0"),
       teamPerformance,
     };
+  }
+
+  // Administrative Forms operations
+  async getAdministrativeForms(filters?: { formType?: string; status?: string; submittedBy?: string; teamId?: number }): Promise<AdministrativeForm[]> {
+    let query = db.select().from(administrativeForms);
+    
+    if (filters) {
+      const conditions = [];
+      if (filters.formType) conditions.push(eq(administrativeForms.formType, filters.formType));
+      if (filters.status) conditions.push(eq(administrativeForms.status, filters.status));
+      if (filters.submittedBy) conditions.push(eq(administrativeForms.submittedBy, filters.submittedBy));
+      if (filters.teamId) conditions.push(eq(administrativeForms.teamId, filters.teamId));
+      
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions));
+      }
+    }
+    
+    return await query.orderBy(desc(administrativeForms.createdAt));
+  }
+
+  async getAdministrativeForm(id: number): Promise<AdministrativeForm | undefined> {
+    const [form] = await db.select().from(administrativeForms).where(eq(administrativeForms.id, id));
+    return form;
+  }
+
+  async createAdministrativeForm(formData: InsertAdministrativeForm): Promise<AdministrativeForm> {
+    const [form] = await db.insert(administrativeForms).values({
+      ...formData,
+      submittedAt: new Date(),
+    }).returning();
+    
+    // Log activity
+    await this.createActivity({
+      action: "form_submitted",
+      description: `Administrative form ${formData.formType} submitted`,
+      entityType: "form",
+      entityId: form.id,
+      userId: formData.submittedBy,
+      metadata: { formType: formData.formType, sopReference: formData.sopReference },
+    });
+    
+    return form;
+  }
+
+  async updateAdministrativeForm(id: number, formData: Partial<InsertAdministrativeForm>): Promise<AdministrativeForm> {
+    const [form] = await db.update(administrativeForms)
+      .set({ ...formData, updatedAt: new Date() })
+      .where(eq(administrativeForms.id, id))
+      .returning();
+    return form;
+  }
+
+  async deleteAdministrativeForm(id: number): Promise<void> {
+    await db.delete(administrativeForms).where(eq(administrativeForms.id, id));
+  }
+
+  async approveAdministrativeForm(id: number, approvedBy: string, reviewNotes?: string): Promise<AdministrativeForm> {
+    const [form] = await db.update(administrativeForms)
+      .set({
+        status: "approved",
+        approvedBy,
+        approvedAt: new Date(),
+        reviewNotes,
+        updatedAt: new Date(),
+      })
+      .where(eq(administrativeForms.id, id))
+      .returning();
+    
+    // Log activity
+    await this.createActivity({
+      action: "form_approved",
+      description: `Administrative form approved`,
+      entityType: "form",
+      entityId: id,
+      userId: approvedBy,
+      metadata: { reviewNotes },
+    });
+    
+    return form;
+  }
+
+  async rejectAdministrativeForm(id: number, rejectedBy: string, rejectionReason: string): Promise<AdministrativeForm> {
+    const [form] = await db.update(administrativeForms)
+      .set({
+        status: "rejected",
+        rejectionReason,
+        updatedAt: new Date(),
+      })
+      .where(eq(administrativeForms.id, id))
+      .returning();
+    
+    // Log activity
+    await this.createActivity({
+      action: "form_rejected",
+      description: `Administrative form rejected`,
+      entityType: "form",
+      entityId: id,
+      userId: rejectedBy,
+      metadata: { rejectionReason },
+    });
+    
+    return form;
   }
 }
 

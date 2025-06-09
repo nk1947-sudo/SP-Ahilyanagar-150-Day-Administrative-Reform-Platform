@@ -218,6 +218,31 @@ export const activities = pgTable("activities", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Administrative Forms table for Section A forms management
+export const administrativeForms = pgTable("administrative_forms", {
+  id: serial("id").primaryKey(),
+  formType: varchar("form_type").notNull(), // team-formation, progress-report, meeting-minutes, task-assignment, risk-assessment
+  title: varchar("title").notNull(),
+  formData: jsonb("form_data").notNull(), // JSON structure containing all form fields
+  status: varchar("status").default("draft"), // draft, submitted, approved, rejected
+  submittedBy: varchar("submitted_by").notNull().references(() => users.id),
+  submittedAt: timestamp("submitted_at"),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  teamId: integer("team_id").references(() => teams.id),
+  sopReference: varchar("sop_reference"), // SOP-A1, SOP-A2, etc.
+  priority: varchar("priority").default("medium"), // low, medium, high, critical
+  dueDate: timestamp("due_date"),
+  completedAt: timestamp("completed_at"),
+  rejectionReason: text("rejection_reason"),
+  version: integer("version").default(1),
+  parentFormId: integer("parent_form_id"),
+  attachments: jsonb("attachments"), // array of file references
+  reviewNotes: text("review_notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   assignedTasks: many(tasks),
@@ -342,6 +367,25 @@ export const activitiesRelations = relations(activities, ({ one }) => ({
   }),
 }));
 
+export const administrativeFormsRelations = relations(administrativeForms, ({ one }) => ({
+  submitter: one(users, {
+    fields: [administrativeForms.submittedBy],
+    references: [users.id],
+  }),
+  approver: one(users, {
+    fields: [administrativeForms.approvedBy],
+    references: [users.id],
+  }),
+  team: one(teams, {
+    fields: [administrativeForms.teamId],
+    references: [teams.id],
+  }),
+  parentForm: one(administrativeForms, {
+    fields: [administrativeForms.parentFormId],
+    references: [administrativeForms.id],
+  }),
+}));
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -366,6 +410,9 @@ export type Feedback = typeof feedback.$inferSelect;
 
 export type InsertActivity = typeof activities.$inferInsert;
 export type Activity = typeof activities.$inferSelect;
+
+export type InsertAdministrativeForm = typeof administrativeForms.$inferInsert;
+export type AdministrativeForm = typeof administrativeForms.$inferSelect;
 
 export type InsertRole = typeof roles.$inferInsert;
 export type Role = typeof roles.$inferSelect;
