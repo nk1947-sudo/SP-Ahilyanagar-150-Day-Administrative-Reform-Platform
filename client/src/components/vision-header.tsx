@@ -8,22 +8,22 @@ export function VisionHeader() {
 
   return (
     <header className="bg-gradient-to-r from-secondary via-primary to-accent text-white shadow-lg">
-      <div className="container mx-auto px-6 py-4">
-        <div className="flex items-center justify-between min-h-[80px]">
+      <div className="container mx-auto px-6 py-3">
+        <div className="flex items-center justify-between min-h-[60px]">
           {/* Logo and Title */}
-          <div className="flex items-center space-x-6 lg:space-x-8 flex-1">
-            <div className="flex-shrink-0 flex items-center justify-center bg-white/10 rounded-full p-2 backdrop-blur-sm">
+          <div className="flex items-center space-x-4 flex-1">
+            <div className="flex-shrink-0 flex items-center justify-center bg-white/15 rounded-lg p-1.5 backdrop-blur-sm">
               <img 
                 src={vision2047Logo} 
                 alt="Vision 2047 Maharashtra" 
-                className="h-12 lg:h-16 w-auto object-contain"
+                className="h-8 lg:h-10 w-auto object-contain"
               />
             </div>
-            <div className="text-left min-w-0 flex-1 ml-4">
-              <h1 className="text-lg lg:text-2xl font-bold leading-tight mb-1">
+            <div className="text-left min-w-0 flex-1">
+              <h1 className="text-base lg:text-xl font-bold leading-tight">
                 SP Ahilyanagar - Administrative Reform Program
               </h1>
-              <p className="text-xs lg:text-sm opacity-90 mb-1">
+              <p className="text-xs opacity-90">
                 150-Day Implementation Strategy | विकसित महाराष्ट्र 2047
               </p>
               <p className="text-xs opacity-75 hidden sm:block">
