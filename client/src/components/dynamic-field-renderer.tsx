@@ -194,14 +194,15 @@ export function DynamicFieldRenderer({
         );
 
       case "select":
+        const selectOptions = validation.options || [];
         return (
           <Select value={fieldValue} onValueChange={(value) => onFieldChange(field.id, value)}>
             <SelectTrigger>
               <SelectValue placeholder={field.placeholder || "Select an option"} />
             </SelectTrigger>
             <SelectContent>
-              {field.options?.map((option: string, index: number) => (
-                <SelectItem key={index} value={option}>
+              {selectOptions.map((option: string, index: number) => (
+                <SelectItem key={index} value={option || `option-${index}`}>
                   {option}
                 </SelectItem>
               ))}
@@ -211,9 +212,10 @@ export function DynamicFieldRenderer({
 
       case "multiselect":
         const multiValues = Array.isArray(fieldValue) ? fieldValue : [];
+        const multiselectOptions = validation.options || [];
         return (
           <div className="space-y-2">
-            {field.options?.map((option: string, index: number) => (
+            {multiselectOptions.map((option: string, index: number) => (
               <div key={index} className="flex items-center space-x-2">
                 <Checkbox
                   id={`${field.id}-${index}`}
@@ -232,9 +234,10 @@ export function DynamicFieldRenderer({
         );
 
       case "radio":
+        const radioOptions = validation.options || [];
         return (
           <RadioGroup value={fieldValue} onValueChange={(value) => onFieldChange(field.id, value)}>
-            {field.options?.map((option: string, index: number) => (
+            {radioOptions.map((option: string, index: number) => (
               <div key={index} className="flex items-center space-x-2">
                 <RadioGroupItem value={option} id={`${field.id}-${index}`} />
                 <Label htmlFor={`${field.id}-${index}`}>{option}</Label>
