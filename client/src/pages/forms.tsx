@@ -222,6 +222,8 @@ export default function FormsPage() {
   };
 
   const filteredForms = forms.filter(form => {
+    const formType = FORM_TYPES.find(type => type.value === form.formType);
+    if (categoryFilter && categoryFilter !== "all" && formType?.category !== categoryFilter) return false;
     if (selectedFormType && selectedFormType !== "all" && form.formType !== selectedFormType) return false;
     if (statusFilter && statusFilter !== "all" && form.status !== statusFilter) return false;
     return true;
@@ -229,11 +231,11 @@ export default function FormsPage() {
 
   // Statistics
   const stats = {
-    total: forms.length,
-    draft: forms.filter(f => f.status === "draft").length,
-    submitted: forms.filter(f => f.status === "submitted").length,
-    approved: forms.filter(f => f.status === "approved").length,
-    rejected: forms.filter(f => f.status === "rejected").length
+    total: filteredForms.length,
+    draft: filteredForms.filter(f => f.status === "draft").length,
+    submitted: filteredForms.filter(f => f.status === "submitted").length,
+    approved: filteredForms.filter(f => f.status === "approved").length,
+    rejected: filteredForms.filter(f => f.status === "rejected").length
   };
 
   return (
@@ -270,7 +272,7 @@ export default function FormsPage() {
                     <SelectContent>
                       {FORM_TYPES.map(type => (
                         <SelectItem key={type.value} value={type.value}>
-                          {type.label} ({type.sop})
+                          {type.label} ({type.sop}) - {type.category}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -497,7 +499,14 @@ export default function FormsPage() {
                 {filteredForms.map((form) => (
                   <TableRow key={form.id}>
                     <TableCell className="font-medium">{form.title}</TableCell>
-                    <TableCell>{getFormTypeLabel(form.formType)}</TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div>{getFormTypeLabel(form.formType)}</div>
+                        <Badge variant="secondary" className="text-xs">
+                          {FORM_TYPES.find(type => type.value === form.formType)?.category || "Administrative"}
+                        </Badge>
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline">{form.sopReference}</Badge>
                     </TableCell>
