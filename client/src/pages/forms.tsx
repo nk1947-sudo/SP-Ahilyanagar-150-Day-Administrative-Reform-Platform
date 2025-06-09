@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format } from "date-fns";
+import { EGovernanceFormTemplate } from "@/components/e-governance-form-templates";
 
 interface AdministrativeForm {
   id: number;
@@ -335,6 +336,18 @@ export default function FormsPage() {
                 />
               </div>
 
+              {/* E-Governance Form Templates */}
+              {newForm.formType && FORM_TYPES.find(type => type.value === newForm.formType)?.category === "E-Governance" && (
+                <div className="border-t pt-4">
+                  <Label className="text-base font-semibold">E-Governance Form Template</Label>
+                  <EGovernanceFormTemplate
+                    formType={newForm.formType}
+                    content={newForm.content}
+                    onContentChange={(content) => setNewForm(prev => ({ ...prev, content }))}
+                  />
+                </div>
+              )}
+
               <div className="flex justify-end space-x-2">
                 <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
                   Cancel
@@ -615,6 +628,63 @@ export default function FormsPage() {
                 <div>
                   <Label>Description</Label>
                   <p className="mt-1 whitespace-pre-wrap">{selectedForm.description}</p>
+                </div>
+              )}
+
+              {/* E-Governance Form Data Display */}
+              {FORM_TYPES.find(type => type.value === selectedForm.formType)?.category === "E-Governance" && selectedForm.content && Object.keys(selectedForm.content).length > 0 && (
+                <div className="border-t pt-4">
+                  <Label className="text-base font-semibold">Form Data</Label>
+                  <div className="mt-2 space-y-4">
+                    {selectedForm.formType === "aaple-sarkar-integration" && (
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div><strong>Service Name:</strong> {selectedForm.content.serviceName || "N/A"}</div>
+                        <div><strong>Service Code:</strong> {selectedForm.content.serviceCode || "N/A"}</div>
+                        <div><strong>Integration Lead:</strong> {selectedForm.content.integrationLead || "N/A"}</div>
+                        <div><strong>Target Go-Live:</strong> {selectedForm.content.targetGoLive || "N/A"}</div>
+                        <div><strong>Delivery Mode:</strong> {selectedForm.content.deliveryMode || "N/A"}</div>
+                        <div><strong>Annual Volume:</strong> {selectedForm.content.annualVolume || "N/A"}</div>
+                        <div><strong>Processing Time:</strong> {selectedForm.content.processingTime || "N/A"}</div>
+                        <div><strong>Revenue Generated:</strong> ₹{selectedForm.content.revenueGenerated || "N/A"}</div>
+                        {selectedForm.content.painPoints && (
+                          <div className="col-span-2"><strong>Pain Points:</strong> {selectedForm.content.painPoints}</div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {selectedForm.formType === "gpr-analysis" && (
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div><strong>Process Name:</strong> {selectedForm.content.processName || "N/A"}</div>
+                        <div><strong>Service Priority:</strong> {selectedForm.content.servicePriority || "N/A"}</div>
+                        <div><strong>Total Steps:</strong> {selectedForm.content.totalSteps || "N/A"}</div>
+                        <div><strong>Value-Adding Steps:</strong> {selectedForm.content.valueSteps || "N/A"}</div>
+                        <div><strong>Current Processing Time:</strong> {selectedForm.content.totalTime || "N/A"} days</div>
+                        <div><strong>Target Processing Time:</strong> {selectedForm.content.targetTime || "N/A"} days</div>
+                        <div><strong>Expected Improvement:</strong> {selectedForm.content.improvement || "N/A"}%</div>
+                        <div><strong>Touch Points:</strong> {selectedForm.content.touchPoints || "N/A"}</div>
+                        {selectedForm.content.why5 && (
+                          <div className="col-span-2"><strong>Root Cause:</strong> {selectedForm.content.why5}</div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {selectedForm.formType === "e-office-tracker" && (
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div><strong>Reporting Week:</strong> {selectedForm.content.reportingWeek || "N/A"}</div>
+                        <div><strong>Total Users:</strong> {selectedForm.content.totalUsers || "N/A"}</div>
+                        <div><strong>Files Created:</strong> {selectedForm.content.filesCreated || "N/A"}</div>
+                        <div><strong>Files in E-Office:</strong> {selectedForm.content.filesInEOffice || "N/A"}%</div>
+                        <div><strong>Avg Processing Time:</strong> {selectedForm.content.avgProcessingTime || "N/A"} days</div>
+                        <div><strong>Pending Files ({">"} 7 days):</strong> {selectedForm.content.pendingFiles || "N/A"}</div>
+                        {selectedForm.content.barriers && (
+                          <div className="col-span-2"><strong>Barriers:</strong> {selectedForm.content.barriers}</div>
+                        )}
+                        {selectedForm.content.mitigationStrategies && (
+                          <div className="col-span-2"><strong>Mitigation:</strong> {selectedForm.content.mitigationStrategies}</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 

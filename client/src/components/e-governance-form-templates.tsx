@@ -501,7 +501,7 @@ export function EGovernanceFormTemplate({ formType, content, onContentChange }: 
                   />
                 </div>
                 <div>
-                  <Label>Files Pending >7 days</Label>
+                  <Label>Files Pending {">"} 7 days</Label>
                   <Input
                     type="number"
                     value={content.pendingFiles || ""}
