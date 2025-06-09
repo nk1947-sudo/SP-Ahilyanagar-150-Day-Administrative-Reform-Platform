@@ -68,9 +68,17 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const rootDir = path.resolve(__dirname, "..");
-  app.use(express.static(path.join(rootDir, "dist/public")));
+  // Get absolute path to project root without relying on import.meta.dirname
+  const rootDir = process.cwd();
+  const publicDir = path.join(rootDir, "dist/public");
+
+  console.log(`Serving static files from: ${publicDir}`);
+
+  app.use(express.static(publicDir));
+
   app.get("*", (_req, res) => {
-    res.sendFile(path.join(rootDir, "dist/public/index.html"));
+    const indexPath = path.join(publicDir, "index.html");
+    console.log(`Serving index.html from: ${indexPath}`);
+    res.sendFile(indexPath);
   });
 }
