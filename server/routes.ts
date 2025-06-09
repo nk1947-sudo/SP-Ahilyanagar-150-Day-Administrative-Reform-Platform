@@ -585,6 +585,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/reports/daily', isAuthenticated, async (req, res) => {
+    try {
+      const { teamId, reportDate, reportTime } = req.query;
+      const filters: any = {};
+      
+      if (teamId) filters.teamId = parseInt(teamId as string);
+      if (reportDate) filters.reportDate = reportDate as string;
+      if (reportTime) filters.reportTime = reportTime as string;
+      
+      const reports = await storage.getDailyReports(filters);
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching daily reports:", error);
+      res.status(500).json({ message: "Failed to fetch daily reports" });
+    }
+  });
+
   app.post('/api/reports', isAuthenticated, async (req, res) => {
     try {
       const reportData = insertDailyReportSchema.parse(req.body);
@@ -998,11 +1015,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // LLM Chatbot Routes
   
   // Chat with AI assistant
-  app.post('/api/chat', async (req: any, res) => {
+  app.post('/api/chat', isAuthenticated, async (req: any, res) => {
     try {
-      if (!req.isAuthenticated() || !req.user) {
-        return res.status(401).json({ message: "Invalid user session" });
-      }
       
       const userId = req.user.claims?.sub || req.user.id;
       const { message, conversationId } = req.body;
