@@ -16,7 +16,7 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, Filter, Edit2, Trash2, Calendar, User, Target, AlertCircle } from "lucide-react";
+import { Plus, Search, Filter, Edit2, Trash2, Calendar, User, Target, AlertCircle, Upload, FileText, X } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -57,6 +57,7 @@ export default function TaskManagement() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [assigningTask, setAssigningTask] = useState<Task | null>(null);
   const [attachments, setAttachments] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState("details");
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -94,6 +95,8 @@ export default function TaskManagement() {
         description: "Task created successfully",
       });
       setIsCreateDialogOpen(false);
+      setAttachments([]);
+      setActiveTab("details");
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
@@ -282,9 +285,43 @@ export default function TaskManagement() {
       dueDate: formData.get("dueDate") as string,
       progress: 0,
       tags: formData.get("tags") ? (formData.get("tags") as string).split(",").map(tag => tag.trim()) : [],
+      attachments: attachments,
     };
 
     createTaskMutation.mutate(taskData);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach(file => {
+      const newAttachment = {
+        id: Date.now() + Math.random(),
+        title: file.name,
+        description: `Uploaded file: ${file.name}`,
+        filePath: `/uploads/${file.name}`,
+        fileSize: file.size,
+        fileType: file.type,
+        uploadedAt: new Date().toISOString(),
+      };
+      setAttachments(prev => [...prev, newAttachment]);
+    });
+    
+    // Clear the input
+    e.target.value = '';
+  };
+
+  const removeAttachment = (id: number) => {
+    setAttachments(prev => prev.filter(att => att.id !== id));
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   const handleUpdateTask = (e: React.FormEvent<HTMLFormElement>) => {
@@ -449,7 +486,7 @@ export default function TaskManagement() {
                       Create Task
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-[525px]">
+                  <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-hidden">
                     <form onSubmit={handleCreateTask}>
                       <DialogHeader>
                         <DialogTitle>Create New Task</DialogTitle>
@@ -457,62 +494,142 @@ export default function TaskManagement() {
                           Add a new task to track progress in the 150-day program.
                         </DialogDescription>
                       </DialogHeader>
-                      <div className="grid gap-4 py-4">
-                        <div className="grid gap-2">
-                          <Label htmlFor="title">Title</Label>
-                          <Input id="title" name="title" required />
+                      
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="details">Task Details</TabsTrigger>
+                          <TabsTrigger value="attachments">
+                            Attachments ({attachments.length})
+                          </TabsTrigger>
+                        </TabsList>
+                        
+                        <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                          <TabsContent value="details" className="space-y-4 mt-4">
+                            <div className="grid gap-2">
+                              <Label htmlFor="title">Title</Label>
+                              <Input id="title" name="title" required />
+                            </div>
+                            <div className="grid gap-2">
+                              <Label htmlFor="description">Description</Label>
+                              <Textarea id="description" name="description" rows={3} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="grid gap-2">
+                                <Label htmlFor="teamId">Team</Label>
+                                <Select name="teamId">
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select team" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {(teams as Team[]).map((team: Team) => (
+                                      <SelectItem key={team.id} value={team.id.toString()}>
+                                        {team.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="grid gap-2">
+                                <Label htmlFor="priority">Priority</Label>
+                                <Select name="priority" defaultValue="medium">
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="low">Low</SelectItem>
+                                    <SelectItem value="medium">Medium</SelectItem>
+                                    <SelectItem value="high">High</SelectItem>
+                                    <SelectItem value="critical">Critical</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="grid gap-2">
+                                <Label htmlFor="startDate">Start Date</Label>
+                                <Input id="startDate" name="startDate" type="date" />
+                              </div>
+                              <div className="grid gap-2">
+                                <Label htmlFor="dueDate">Due Date</Label>
+                                <Input id="dueDate" name="dueDate" type="date" />
+                              </div>
+                            </div>
+                            <div className="grid gap-2">
+                              <Label htmlFor="tags">Tags (comma separated)</Label>
+                              <Input id="tags" name="tags" placeholder="e.g. urgent, development, testing" />
+                            </div>
+                          </TabsContent>
+                          
+                          <TabsContent value="attachments" className="space-y-4 mt-4">
+                            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6">
+                              <div className="text-center">
+                                <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                                  Upload Documents
+                                </h3>
+                                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                                  Select multiple files to attach to this task
+                                </p>
+                                <input
+                                  type="file"
+                                  multiple
+                                  onChange={handleFileUpload}
+                                  className="hidden"
+                                  id="file-upload"
+                                  accept=".pdf,.doc,.docx,.txt,.jpg,.png,.xlsx,.ppt,.pptx"
+                                />
+                                <Button 
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => document.getElementById('file-upload')?.click()}
+                                >
+                                  <Upload className="h-4 w-4 mr-2" />
+                                  Choose Files
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            {attachments.length > 0 && (
+                              <div className="space-y-3">
+                                <h4 className="font-medium text-gray-900 dark:text-white">
+                                  Attached Files ({attachments.length})
+                                </h4>
+                                <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                                  {attachments.map((attachment) => (
+                                    <div
+                                      key={attachment.id}
+                                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                                    >
+                                      <div className="flex items-center space-x-3">
+                                        <FileText className="h-8 w-8 text-blue-600" />
+                                        <div>
+                                          <p className="font-medium text-gray-900 dark:text-white">
+                                            {attachment.title}
+                                          </p>
+                                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                                            {formatFileSize(attachment.fileSize)} • {attachment.fileType}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => removeAttachment(attachment.id)}
+                                        className="text-red-600 hover:text-red-700"
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </TabsContent>
                         </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="description">Description</Label>
-                          <Textarea id="description" name="description" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="grid gap-2">
-                            <Label htmlFor="teamId">Team</Label>
-                            <Select name="teamId">
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select team" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {teams.map((team: Team) => (
-                                  <SelectItem key={team.id} value={team.id.toString()}>
-                                    {team.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="grid gap-2">
-                            <Label htmlFor="priority">Priority</Label>
-                            <Select name="priority" defaultValue="medium">
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="low">Low</SelectItem>
-                                <SelectItem value="medium">Medium</SelectItem>
-                                <SelectItem value="high">High</SelectItem>
-                                <SelectItem value="critical">Critical</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="grid gap-2">
-                            <Label htmlFor="startDate">Start Date</Label>
-                            <Input id="startDate" name="startDate" type="date" />
-                          </div>
-                          <div className="grid gap-2">
-                            <Label htmlFor="dueDate">Due Date</Label>
-                            <Input id="dueDate" name="dueDate" type="date" />
-                          </div>
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="tags">Tags (comma separated)</Label>
-                          <Input id="tags" name="tags" placeholder="e.g. urgent, development, testing" />
-                        </div>
-                      </div>
-                      <DialogFooter>
+                      </Tabs>
+                      
+                      <DialogFooter className="mt-6">
                         <Button type="submit" disabled={createTaskMutation.isPending}>
                           {createTaskMutation.isPending ? "Creating..." : "Create Task"}
                         </Button>

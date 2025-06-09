@@ -415,11 +415,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Insufficient permissions to create tasks" });
       }
       
+      const { attachments, ...restBody } = req.body;
+      
       const taskData = insertTaskSchema.parse({
-        ...req.body,
+        ...restBody,
         assignedTo: req.body.assignedTo || userId,
       });
       const task = await storage.createTask(taskData);
+      
+      // Create document attachments if provided
+      if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+        for (const attachment of attachments) {
+          await storage.createDocument({
+            title: attachment.title,
+            description: attachment.description || `Task attachment: ${attachment.title}`,
+            category: 'task_attachment',
+            filePath: attachment.filePath,
+            fileSize: attachment.fileSize,
+            fileType: attachment.fileType,
+            teamId: task.teamId,
+            uploadedBy: userId,
+            isPublic: false,
+          });
+        }
+        
+        await storage.createActivity({
+          action: 'documents_attached',
+          description: `${attachments.length} document(s) attached to task "${task.title}"`,
+          entityType: 'task',
+          entityId: task.id,
+          userId: userId,
+        });
+      }
       
       await storage.createActivity({
         action: 'task_created',
