@@ -19,8 +19,10 @@ console.log("Connecting to database...");
 // Create connection pool with configuration
 const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
-  connectionTimeoutMillis: 10000, // 10 second timeout
-  max: 20 // Maximum pool size 
+  connectionTimeoutMillis: 30000, // Increase timeout to 30 seconds
+  max: 20,
+  idleTimeoutMillis: 10000,
+  keepAlive: true
 });
 
 // Initialize Drizzle with the pool
@@ -31,6 +33,12 @@ pool.query('SELECT 1').then(() => {
   console.log("Database connection established successfully");
 }).catch(err => {
   console.error("Failed to connect to database:", err.message);
+});
+
+// Add error handler for the pool
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle client', err);
+  process.exit(-1);
 });
 
 export { pool, db };

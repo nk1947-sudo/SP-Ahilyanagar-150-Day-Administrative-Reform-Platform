@@ -81,26 +81,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/auth/local/register', async (req, res) => {
     try {
       const { username, email, password, firstName, lastName } = req.body;
+      
       if (!username || !password) {
         return res.status(400).json({ message: "Username and password required" });
       }
-      
-      const user = {
+
+      // Check if user exists
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(400).json({ message: "Username already exists" });
+      }
+
+      const user = await storage.createUser({
         id: `local_${username}_${Date.now()}`,
         username,
         email: email || `${username}@sp-ahilyanagar.gov.in`,
         firstName: firstName || username.charAt(0).toUpperCase() + username.slice(1),
         lastName: lastName || '',
         role: 'member',
-        team: 'alpha'
-      };
-      
-      req.login(user, (err: any) => {
-        if (err) return res.status(500).json({ message: "Registration failed" });
-        res.json(user);
+        isActive: true,
+        lastLoginAt: new Date()
+      });
+
+      req.login(user, (err) => {
+        if (err) {
+          console.error('Login error after registration:', err);
+          return res.status(500).json({ message: "Registration successful but login failed" });
+        }
+        res.status(201).json({ message: "Registration successful", user });
       });
     } catch (error) {
-      res.status(500).json({ message: "Registration error" });
+      console.error('Registration error:', error);
+      if (!res.headersSent) {
+        res.status(500).json({ message: "Registration failed", error: error.message });
+      }
     }
   });
 
