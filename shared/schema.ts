@@ -218,12 +218,45 @@ export const activities = pgTable("activities", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Custom Field Definitions table
+export const customFieldDefinitions = pgTable("custom_field_definitions", {
+  id: serial("id").primaryKey(),
+  fieldName: varchar("field_name").notNull(),
+  fieldLabel: varchar("field_label").notNull(),
+  fieldType: varchar("field_type").notNull(), // text, number, date, select, checkbox, textarea, file, email, phone
+  section: varchar("section").notNull(), // administrative, e-governance, gad-reform, tasks, teams, documents, budget, reports
+  isRequired: boolean("is_required").default(false),
+  defaultValue: text("default_value"),
+  validationRules: jsonb("validation_rules").default('{}'), // min, max, pattern, options for select
+  displayOrder: integer("display_order").default(0),
+  isActive: boolean("is_active").default(true),
+  helpText: text("help_text"),
+  placeholder: varchar("placeholder"),
+  groupName: varchar("group_name"), // to group related fields
+  conditionalLogic: jsonb("conditional_logic"), // show/hide based on other fields
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Custom Field Values table (stores actual values)
+export const customFieldValues = pgTable("custom_field_values", {
+  id: serial("id").primaryKey(),
+  fieldDefinitionId: integer("field_definition_id").references(() => customFieldDefinitions.id),
+  entityType: varchar("entity_type").notNull(), // form, task, team, document, budget, report
+  entityId: integer("entity_id").notNull(), // ID of the related entity
+  value: text("value"), // stores the actual field value as text
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Administrative Forms table for Section A forms management
 export const administrativeForms = pgTable("administrative_forms", {
   id: serial("id").primaryKey(),
   formType: varchar("form_type").notNull(), // team-formation, progress-report, meeting-minutes, task-assignment, risk-assessment
   title: varchar("title").notNull(),
   formData: jsonb("form_data").notNull(), // JSON structure containing all form fields
+  customFieldData: jsonb("custom_field_data").default('{}'), // stores custom field values
   status: varchar("status").default("draft"), // draft, submitted, approved, rejected
   submittedBy: varchar("submitted_by").notNull().references(() => users.id),
   submittedAt: timestamp("submitted_at"),
@@ -367,6 +400,21 @@ export const activitiesRelations = relations(activities, ({ one }) => ({
   }),
 }));
 
+export const customFieldDefinitionsRelations = relations(customFieldDefinitions, ({ one, many }) => ({
+  creator: one(users, {
+    fields: [customFieldDefinitions.createdBy],
+    references: [users.id],
+  }),
+  values: many(customFieldValues),
+}));
+
+export const customFieldValuesRelations = relations(customFieldValues, ({ one }) => ({
+  fieldDefinition: one(customFieldDefinitions, {
+    fields: [customFieldValues.fieldDefinitionId],
+    references: [customFieldDefinitions.id],
+  }),
+}));
+
 export const administrativeFormsRelations = relations(administrativeForms, ({ one }) => ({
   submitter: one(users, {
     fields: [administrativeForms.submittedBy],
@@ -410,6 +458,12 @@ export type Feedback = typeof feedback.$inferSelect;
 
 export type InsertActivity = typeof activities.$inferInsert;
 export type Activity = typeof activities.$inferSelect;
+
+export type InsertCustomFieldDefinition = typeof customFieldDefinitions.$inferInsert;
+export type CustomFieldDefinition = typeof customFieldDefinitions.$inferSelect;
+
+export type InsertCustomFieldValue = typeof customFieldValues.$inferInsert;
+export type CustomFieldValue = typeof customFieldValues.$inferSelect;
 
 export type InsertAdministrativeForm = typeof administrativeForms.$inferInsert;
 export type AdministrativeForm = typeof administrativeForms.$inferSelect;
@@ -468,4 +522,16 @@ export const insertFeedbackSchema = createInsertSchema(feedback).omit({
 export const insertActivitySchema = createInsertSchema(activities).omit({
   id: true,
   createdAt: true,
+});
+
+export const insertCustomFieldDefinitionSchema = createInsertSchema(customFieldDefinitions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCustomFieldValueSchema = createInsertSchema(customFieldValues).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
