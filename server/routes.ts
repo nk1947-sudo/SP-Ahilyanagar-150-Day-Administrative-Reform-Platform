@@ -27,6 +27,15 @@ import fs from "fs";
 import bcrypt from "bcrypt"; // Add bcrypt for password hashing
 import jwt from "jsonwebtoken"; // Add JWT for token-based auth (optional)
 
+// Extend session data type
+declare module "express-session" {
+  interface SessionData {
+    otp?: string;
+    otpIdentifier?: string;
+    otpExpires?: number;
+  }
+}
+
 // Configure multer for file uploads
 const storage_multer = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -135,11 +144,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(500).json({ message: "Registration successful but login failed" });
         }
         res.status(201).json({ message: "Registration successful", user });
-      });
-    } catch (error) {
+      });    } catch (error) {
       console.error("Registration error:", error);
       if (!res.headersSent) {
-        res.status(500).json({ message: "Registration failed", error: error.message });
+        res.status(500).json({ 
+          message: "Registration failed", 
+          error: error instanceof Error ? error.message : String(error) 
+        });
       }
     }
   });
@@ -174,24 +185,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No OTP request found" });
       }
 
-      if (Date.now() > req.session.otpExpires) {
+      if (Date.now() > (req.session.otpExpires || 0)) {
         return res.status(400).json({ message: "OTP expired" });
       }
 
       if (req.session.otp !== otp || req.session.otpIdentifier !== identifier) {
         return res.status(400).json({ message: "Invalid OTP" });
-      }
-
-      // Create user
-      const user = {
+      }      // Create user in database
+      const user = await storage.createUser({
         id: `otp_${identifier.replace(/[@.]/g, "_")}_${Date.now()}`,
-        email: identifier.includes("@") ? identifier : undefined,
-        phone: identifier.includes("@") ? undefined : identifier,
+        email: identifier.includes("@") ? identifier : null,
+        phone: identifier.includes("@") ? null : identifier,
         firstName: userData?.firstName || "User",
         lastName: userData?.lastName || "",
         role: "member",
         team: "alpha",
-      };
+        isActive: true,
+        lastLoginAt: new Date(),
+      });
 
       // Clear OTP session data
       delete req.session.otp;
@@ -220,15 +231,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes - unified user endpoint
   app.get("/api/auth/user", async (req: any, res) => {
     try {
-      if (!req.isAuthenticated() || !req.user) {
-        // Optionally check for JWT if you switch to token-based auth
+      if (!req.isAuthenticated() || !req.user) {        // Optionally check for JWT if you switch to token-based auth
         const token = req.headers.authorization?.split(" ")[1];
         if (token) {
           try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET || "your-jwt-secret");
-            const user = await storage.getUser(decoded.id);
-            if (user) {
-              return res.json(user);
+            if (typeof decoded !== 'string' && decoded && typeof decoded === 'object' && 'id' in decoded) {
+              const user = await storage.getUser(decoded.id as string);
+              if (user) {
+                return res.json(user);
+              }
             }
           } catch (err) {
             return res.status(401).json({ message: "Invalid token" });
@@ -293,11 +305,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
-
   // Comprehensive API test endpoint (no auth required)
   app.get("/api/test", async (req, res) => {
     try {
-      const results = {
+      const results: { timestamp: string; tests: Record<string, any> } = {
         timestamp: new Date().toISOString(),
         tests: {},
       };
@@ -305,79 +316,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Test each storage method
       try {
         const teams = await storage.getTeams();
-        results.tests.getTeams = { status: "pass", count: teams.length, sample: teams[0] };
-      } catch (error) {
-        results.tests.getTeams = { status: "fail", error: error.message };
+        results.tests.getTeams = { status: "pass", count: teams.length, sample: teams[0] };      } catch (error) {
+        results.tests.getTeams = { status: "fail", error: error instanceof Error ? error.message : String(error) };
       }
 
       try {
         const tasks = await storage.getTasks();
         results.tests.getTasks = { status: "pass", count: tasks.length, sample: tasks[0] };
       } catch (error) {
-        results.tests.getTasks = { status: "fail", error: error.message };
+        results.tests.getTasks = { status: "fail", error: error instanceof Error ? error.message : String(error) };
       }
 
       try {
         const reports = await storage.getDailyReports();
         results.tests.getDailyReports = { status: "pass", count: reports.length, sample: reports[0] };
       } catch (error) {
-        results.tests.getDailyReports = { status: "fail", error: error.message };
+        results.tests.getDailyReports = { status: "fail", error: error instanceof Error ? error.message : String(error) };
       }
 
       try {
         const budget = await storage.getBudgetItems();
         results.tests.getBudgetItems = { status: "pass", count: budget.length, sample: budget[0] };
       } catch (error) {
-        results.tests.getBudgetItems = { status: "fail", error: error.message };
+        results.tests.getBudgetItems = { status: "fail", error: error instanceof Error ? error.message : String(error) };
       }
 
       try {
         const documents = await storage.getDocuments();
         results.tests.getDocuments = { status: "pass", count: documents.length, sample: documents[0] };
       } catch (error) {
-        results.tests.getDocuments = { status: "fail", error: error.message };
+        results.tests.getDocuments = { status: "fail", error: error instanceof Error ? error.message : String(error) };
       }
 
       try {
         const feedback = await storage.getFeedback();
         results.tests.getFeedback = { status: "pass", count: feedback.length, sample: feedback[0] };
       } catch (error) {
-        results.tests.getFeedback = { status: "fail", error: error.message };
+        results.tests.getFeedback = { status: "fail", error: error instanceof Error ? error.message : String(error) };
       }
 
       try {
         const activities = await storage.getActivities(5);
         results.tests.getActivities = { status: "pass", count: activities.length, sample: activities[0] };
       } catch (error) {
-        results.tests.getActivities = { status: "fail", error: error.message };
+        results.tests.getActivities = { status: "fail", error: error instanceof Error ? error.message : String(error) };
       }
 
       try {
         const stats = await storage.getDashboardStats();
         results.tests.getDashboardStats = { status: "pass", data: stats };
       } catch (error) {
-        results.tests.getDashboardStats = { status: "fail", error: error.message };
+        results.tests.getDashboardStats = { status: "fail", error: error instanceof Error ? error.message : String(error) };
       }
 
       try {
         const team1 = await storage.getTeam(1);
         results.tests.getTeam = { status: "pass", data: team1 };
       } catch (error) {
-        results.tests.getTeam = { status: "fail", error: error.message };
+        results.tests.getTeam = { status: "fail", error: error instanceof Error ? error.message : String(error) };
       }
 
       try {
         const task1 = await storage.getTask(1);
         results.tests.getTask = { status: "pass", data: task1 };
       } catch (error) {
-        results.tests.getTask = { status: "fail", error: error.message };
+        results.tests.getTask = { status: "fail", error: error instanceof Error ? error.message : String(error) };
       }
 
       try {
         const teamTasks = await storage.getTasks({ teamId: 1 });
         results.tests.getTasksFiltered = { status: "pass", count: teamTasks.length };
       } catch (error) {
-        results.tests.getTasksFiltered = { status: "fail", error: error.message };
+        results.tests.getTasksFiltered = { status: "fail", error: error instanceof Error ? error.message : String(error) };
       }
 
       res.json(results);

@@ -67,8 +67,8 @@ app.use((req, res, next) => {
         serveStatic(app);
     }
 
-    // Serve on port 3001 (consistent with your logs)
-    const port = process.env.PORT || 3001; // Use 3001 to match your logs
+    // Serve on port 5000 (consistent with your logs)
+    const port = process.env.PORT || 5000; // Use 5000 to match your logs
     server.listen(
         {
             port,

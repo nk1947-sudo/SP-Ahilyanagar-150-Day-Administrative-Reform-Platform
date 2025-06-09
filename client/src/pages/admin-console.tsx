@@ -58,10 +58,16 @@ export default function AdminConsole() {
   // Fetch users
   const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey: ["/api/admin/users", selectedRole],
-    queryFn: () => {
+    queryFn: async () => {
       const params = new URLSearchParams();
       if (selectedRole) params.append("role", selectedRole);
-      return fetch(`/api/admin/users?${params}`).then(res => res.json());
+      const res = await fetch(`/api/admin/users?${params}`);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch users: ${res.status} ${res.statusText}`);
+      }
+      const data = await res.json();
+      // Ensure we always return an array
+      return Array.isArray(data) ? data : [];
     }
   });
 
