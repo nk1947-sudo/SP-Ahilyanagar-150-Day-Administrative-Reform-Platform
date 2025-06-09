@@ -14,6 +14,8 @@ import {
   chatConversations,
   chatMessages,
   administrativeForms,
+  customFieldDefinitions,
+  customFieldValues,
   type User,
   type UpsertUser,
   type Team,
@@ -44,6 +46,10 @@ import {
   type InsertChatMessage,
   type AdministrativeForm,
   type InsertAdministrativeForm,
+  type CustomFieldDefinition,
+  type InsertCustomFieldDefinition,
+  type CustomFieldValue,
+  type InsertCustomFieldValue,
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, desc, and, gte, lte, ilike, sql } from "drizzle-orm";
@@ -140,6 +146,21 @@ export interface IStorage {
   deleteAdministrativeForm(id: number): Promise<void>;
   approveAdministrativeForm(id: number, approvedBy: string, reviewNotes?: string): Promise<AdministrativeForm>;
   rejectAdministrativeForm(id: number, rejectedBy: string, rejectionReason: string): Promise<AdministrativeForm>;
+  
+  // Custom Field Definition operations
+  getCustomFieldDefinitions(section?: string): Promise<CustomFieldDefinition[]>;
+  getCustomFieldDefinition(id: number): Promise<CustomFieldDefinition | undefined>;
+  createCustomFieldDefinition(fieldDef: InsertCustomFieldDefinition): Promise<CustomFieldDefinition>;
+  updateCustomFieldDefinition(id: number, fieldDef: Partial<InsertCustomFieldDefinition>): Promise<CustomFieldDefinition>;
+  deleteCustomFieldDefinition(id: number): Promise<void>;
+  
+  // Custom Field Value operations
+  getCustomFieldValues(entityType: string, entityId: number): Promise<CustomFieldValue[]>;
+  getCustomFieldValuesByDefinition(fieldDefinitionId: number): Promise<CustomFieldValue[]>;
+  createCustomFieldValue(fieldValue: InsertCustomFieldValue): Promise<CustomFieldValue>;
+  updateCustomFieldValue(id: number, fieldValue: Partial<InsertCustomFieldValue>): Promise<CustomFieldValue>;
+  deleteCustomFieldValue(id: number): Promise<void>;
+  setCustomFieldValues(entityType: string, entityId: number, values: { fieldDefinitionId: number; value: string }[]): Promise<void>;
   
   // Dashboard statistics
   getDashboardStats(): Promise<{
@@ -744,6 +765,111 @@ export class DatabaseStorage implements IStorage {
     });
     
     return form;
+  }
+
+  // Custom Field Definition operations
+  async getCustomFieldDefinitions(section?: string): Promise<CustomFieldDefinition[]> {
+    let query = db.select().from(customFieldDefinitions);
+    
+    if (section) {
+      query = query.where(eq(customFieldDefinitions.section, section));
+    }
+    
+    return await query.orderBy(customFieldDefinitions.displayOrder);
+  }
+
+  async getCustomFieldDefinition(id: number): Promise<CustomFieldDefinition | undefined> {
+    const [definition] = await db
+      .select()
+      .from(customFieldDefinitions)
+      .where(eq(customFieldDefinitions.id, id));
+    return definition;
+  }
+
+  async createCustomFieldDefinition(fieldDef: InsertCustomFieldDefinition): Promise<CustomFieldDefinition> {
+    const [definition] = await db
+      .insert(customFieldDefinitions)
+      .values(fieldDef)
+      .returning();
+    return definition;
+  }
+
+  async updateCustomFieldDefinition(id: number, fieldDef: Partial<InsertCustomFieldDefinition>): Promise<CustomFieldDefinition> {
+    const [definition] = await db
+      .update(customFieldDefinitions)
+      .set({ ...fieldDef, updatedAt: new Date() })
+      .where(eq(customFieldDefinitions.id, id))
+      .returning();
+    return definition;
+  }
+
+  async deleteCustomFieldDefinition(id: number): Promise<void> {
+    await db.delete(customFieldDefinitions).where(eq(customFieldDefinitions.id, id));
+  }
+
+  // Custom Field Value operations
+  async getCustomFieldValues(entityType: string, entityId: number): Promise<CustomFieldValue[]> {
+    return await db
+      .select()
+      .from(customFieldValues)
+      .where(
+        and(
+          eq(customFieldValues.entityType, entityType),
+          eq(customFieldValues.entityId, entityId)
+        )
+      );
+  }
+
+  async getCustomFieldValuesByDefinition(fieldDefinitionId: number): Promise<CustomFieldValue[]> {
+    return await db
+      .select()
+      .from(customFieldValues)
+      .where(eq(customFieldValues.fieldDefinitionId, fieldDefinitionId));
+  }
+
+  async createCustomFieldValue(fieldValue: InsertCustomFieldValue): Promise<CustomFieldValue> {
+    const [value] = await db
+      .insert(customFieldValues)
+      .values(fieldValue)
+      .returning();
+    return value;
+  }
+
+  async updateCustomFieldValue(id: number, fieldValue: Partial<InsertCustomFieldValue>): Promise<CustomFieldValue> {
+    const [value] = await db
+      .update(customFieldValues)
+      .set({ ...fieldValue, updatedAt: new Date() })
+      .where(eq(customFieldValues.id, id))
+      .returning();
+    return value;
+  }
+
+  async deleteCustomFieldValue(id: number): Promise<void> {
+    await db.delete(customFieldValues).where(eq(customFieldValues.id, id));
+  }
+
+  async setCustomFieldValues(entityType: string, entityId: number, values: { fieldDefinitionId: number; value: string }[]): Promise<void> {
+    // Delete existing values for this entity
+    await db
+      .delete(customFieldValues)
+      .where(
+        and(
+          eq(customFieldValues.entityType, entityType),
+          eq(customFieldValues.entityId, entityId)
+        )
+      );
+
+    // Insert new values
+    if (values.length > 0) {
+      await db.insert(customFieldValues).values(
+        values.map(v => ({
+          entityType,
+          entityId,
+          fieldDefinitionId: v.fieldDefinitionId,
+          value: v.value,
+        }))
+      );
+    }
   }
 }
 

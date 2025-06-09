@@ -794,6 +794,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Custom Field Definition routes
+  app.get('/api/custom-fields', isAuthenticated, async (req: any, res) => {
+    try {
+      const section = req.query.section as string;
+      const fields = await storage.getCustomFieldDefinitions(section);
+      res.json(fields);
+    } catch (error) {
+      console.error("Error fetching custom fields:", error);
+      res.status(500).json({ message: "Failed to fetch custom fields" });
+    }
+  });
+
+  app.post('/api/custom-fields', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id;
+      const fieldData = { ...req.body, createdBy: userId };
+      const field = await storage.createCustomFieldDefinition(fieldData);
+      res.status(201).json(field);
+    } catch (error) {
+      console.error("Error creating custom field:", error);
+      res.status(500).json({ message: "Failed to create custom field" });
+    }
+  });
+
+  app.put('/api/custom-fields/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const field = await storage.updateCustomFieldDefinition(id, req.body);
+      res.json(field);
+    } catch (error) {
+      console.error("Error updating custom field:", error);
+      res.status(500).json({ message: "Failed to update custom field" });
+    }
+  });
+
+  app.delete('/api/custom-fields/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteCustomFieldDefinition(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting custom field:", error);
+      res.status(500).json({ message: "Failed to delete custom field" });
+    }
+  });
+
+  // Custom Field Values routes
+  app.get('/api/custom-field-values/:entityType/:entityId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { entityType, entityId } = req.params;
+      const values = await storage.getCustomFieldValues(entityType, parseInt(entityId));
+      res.json(values);
+    } catch (error) {
+      console.error("Error fetching custom field values:", error);
+      res.status(500).json({ message: "Failed to fetch custom field values" });
+    }
+  });
+
+  app.post('/api/custom-field-values/:entityType/:entityId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { entityType, entityId } = req.params;
+      const { values } = req.body;
+      await storage.setCustomFieldValues(entityType, parseInt(entityId), values);
+      res.status(201).json({ message: "Custom field values saved" });
+    } catch (error) {
+      console.error("Error saving custom field values:", error);
+      res.status(500).json({ message: "Failed to save custom field values" });
+    }
+  });
+
   // Administrative Forms endpoints
   app.get('/api/forms', isAuthenticated, async (req, res) => {
     try {
