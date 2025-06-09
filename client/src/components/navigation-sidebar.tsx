@@ -14,7 +14,8 @@ import {
   TrendingUp,
   Clock,
   Bot,
-  Shield
+  Shield,
+  ClipboardList
 } from "lucide-react";
 
 const navigationItems = [
@@ -59,6 +60,12 @@ const navigationItems = [
     href: "/feedback",
     icon: MessageSquare,
     description: "Stakeholder feedback"
+  },
+  {
+    title: "Administrative Forms",
+    href: "/forms",
+    icon: ClipboardList,
+    description: "Official forms and SOPs"
   },
   {
     title: "Timeline View",

@@ -18,6 +18,7 @@ import TimelineView from "@/pages/timeline-view";
 import AIAssistant from "@/pages/ai-assistant";
 import AdminConsole from "@/pages/admin-console";
 import EnhancedAuth from "@/pages/enhanced-auth";
+import Forms from "@/pages/forms";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -43,6 +44,7 @@ function Router() {
               <Route path="/documents" component={Documents} />
               <Route path="/budget" component={BudgetTracking} />
               <Route path="/feedback" component={FeedbackSystem} />
+              <Route path="/forms" component={Forms} />
               <Route path="/timeline" component={TimelineView} />
               <Route path="/ai-assistant" component={AIAssistant} />
               <Route path="/admin" component={AdminConsole} />
