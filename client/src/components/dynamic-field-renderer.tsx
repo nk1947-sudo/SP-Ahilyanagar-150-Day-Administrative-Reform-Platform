@@ -102,7 +102,13 @@ export function DynamicFieldRenderer({
 
   const renderField = (field: CustomFieldDefinition) => {
     const fieldValue = values[field.id] || field.defaultValue || "";
-    const validation = field.validation ? JSON.parse(field.validation) : {};
+    let validation = {};
+    try {
+      validation = field.validation ? JSON.parse(field.validation) : {};
+    } catch (error) {
+      console.error('Error parsing field validation:', error);
+      validation = {};
+    }
     const isRequired = field.isRequired;
 
     const commonProps = {
@@ -194,7 +200,7 @@ export function DynamicFieldRenderer({
         );
 
       case "select":
-        const selectOptions = validation.options || [];
+        const selectOptions = (validation.options || []).filter((option: string) => option && option.trim() !== "");
         return (
           <Select value={fieldValue} onValueChange={(value) => onFieldChange(field.id, value)}>
             <SelectTrigger>
@@ -202,7 +208,7 @@ export function DynamicFieldRenderer({
             </SelectTrigger>
             <SelectContent>
               {selectOptions.map((option: string, index: number) => (
-                <SelectItem key={index} value={option || `option-${index}`}>
+                <SelectItem key={index} value={option}>
                   {option}
                 </SelectItem>
               ))}
@@ -212,7 +218,7 @@ export function DynamicFieldRenderer({
 
       case "multiselect":
         const multiValues = Array.isArray(fieldValue) ? fieldValue : [];
-        const multiselectOptions = validation.options || [];
+        const multiselectOptions = (validation.options || []).filter((option: string) => option && option.trim() !== "");
         return (
           <div className="space-y-2">
             {multiselectOptions.map((option: string, index: number) => (
@@ -234,7 +240,7 @@ export function DynamicFieldRenderer({
         );
 
       case "radio":
-        const radioOptions = validation.options || [];
+        const radioOptions = (validation.options || []).filter((option: string) => option && option.trim() !== "");
         return (
           <RadioGroup value={fieldValue} onValueChange={(value) => onFieldChange(field.id, value)}>
             {radioOptions.map((option: string, index: number) => (
