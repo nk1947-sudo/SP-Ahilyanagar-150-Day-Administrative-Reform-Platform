@@ -69,12 +69,6 @@ const navigationItems = [
     description: "Stakeholder feedback"
   },
   {
-    title: "E-Governance Forms",
-    href: "/forms",
-    icon: ClipboardList,
-    description: "Digital governance and SOPs"
-  },
-  {
     title: "Master Fields",
     href: "/master-fields",
     icon: Settings,
