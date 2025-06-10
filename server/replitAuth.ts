@@ -137,13 +137,8 @@ export async function setupAuth(app: Express) {
 
   app.get("/api/logout", (req, res) => {
     req.logout(() => {
-      const replId = process.env.REPL_ID || process.env.REPLIT_DOMAINS?.split('-').slice(0, 5).join('-') || "4b2ac331-e6aa-4306-8163-c317be478acb";
-      res.redirect(
-        client.buildEndSessionUrl(config, {
-          client_id: replId,
-          post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
-        }).href
-      );
+      // Redirect to homepage after logout
+      res.redirect("/");
     });
   });
 }

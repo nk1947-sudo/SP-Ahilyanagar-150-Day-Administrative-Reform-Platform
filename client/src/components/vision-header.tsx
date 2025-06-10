@@ -46,7 +46,9 @@ export function VisionHeader() {
                   variant="outline" 
                   size="sm"
                   className="bg-white/10 border-white/20 text-white hover:bg-white/20 whitespace-nowrap"
-                  onClick={() => window.location.href = '/api/logout'}
+                  onClick={() => {
+                    window.location.href = '/api/logout';
+                  }}
                 >
                   Logout
                 </Button>

@@ -434,7 +434,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: `Team ${team.name} was created`,
         entityType: "team",
         entityId: team.id,
-        userId: req.user?.claims?.sub,
+        userId: req.user?.id,  // Changed from req.user?.claims?.sub
       });
 
       res.status(201).json(team);
@@ -493,7 +493,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             category: "task_attachment",
             filePath: attachment.filePath,
             fileSize: attachment.fileSize,
-            fileType: attachment.fileType,
+            mimeType: attachment.fileType,  // Changed from fileType: attachment.fileType
             teamId: task.teamId,
             uploadedBy: userId,
             isPublic: false,
@@ -617,7 +617,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: `Task was deleted`,
         entityType: "task",
         entityId: id,
-        userId: req.user?.claims?.sub,
+        userId: req.user?.id,  // Changed from req.user?.claims?.sub
       });
 
       res.status(204).send();
@@ -672,7 +672,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: `Daily report submitted for ${reportData.reportTime}`,
         entityType: "report",
         entityId: report.id,
-        userId: req.user?.claims?.sub,
+        userId: req.user?.id,  // Changed from req.user?.claims?.sub
       });
 
       res.status(201).json(report);
@@ -704,7 +704,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: `Budget item "${budgetItem.category}" was created`,
         entityType: "budget",
         entityId: budgetItem.id,
-        userId: req.user?.claims?.sub,
+        userId: req.user?.id,  // Changed from req.user?.claims?.sub
       });
 
       res.status(201).json(budgetItem);
@@ -747,7 +747,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         mimeType: req.file.mimetype,
         category: req.body.category,
         teamId: req.body.teamId ? parseInt(req.body.teamId) : null,
-        uploadedBy: req.user?.claims?.sub,
+        uploadedBy: req.user?.id,  // Changed from req.user?.claims?.sub
         isPublic: req.body.isPublic === "true",
         tags: req.body.tags ? JSON.parse(req.body.tags) : [],
       };
@@ -759,7 +759,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: `Document "${document.title}" was uploaded`,
         entityType: "document",
         entityId: document.id,
-        userId: req.user?.claims?.sub,
+        userId: req.user?.id,  // Changed from req.user?.claims?.sub
       });
 
       res.status(201).json(document);
@@ -787,7 +787,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: `Document "${document.title}" was deleted`,
         entityType: "document",
         entityId: documentId,
-        userId: req.user?.claims?.sub,
+        userId: req.user?.id,  // Changed from req.user?.claims?.sub
       });
 
       res.json({ message: "Document deleted successfully" });
@@ -819,7 +819,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const feedbackData = insertFeedbackSchema.parse({
         ...req.body,
-        submittedBy: req.user?.claims?.sub,
+        submittedBy: req.user?.id,  // Changed from req.user?.claims?.sub
       });
       const feedback = await storage.createFeedback(feedbackData);
 
@@ -828,7 +828,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: `Feedback submitted: "${feedback.subject}"`,
         entityType: "feedback",
         entityId: feedback.id,
-        userId: req.user?.claims?.sub,
+        userId: req.user?.id,  // Changed from req.user?.claims?.sub
       });
 
       res.status(201).json(feedback);
@@ -1392,6 +1392,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
   };
+
+  // Logout route
+  app.get("/api/logout", (req, res) => {
+    // Destroy the session
+    req.session.destroy((err) => {
+      if (err) {
+        console.error("Error destroying session:", err);
+      }
+      
+      // Clear any authentication cookies
+      res.clearCookie("connect.sid");
+      
+      // Redirect to home page instead of Replit auth endpoint
+      res.redirect("/");
+    });
+  });
 
   return httpServer;
 }
