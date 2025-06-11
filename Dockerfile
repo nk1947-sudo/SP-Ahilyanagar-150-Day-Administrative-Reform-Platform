@@ -22,6 +22,7 @@ COPY --from=builder /app/server ./server
 COPY --from=builder /app/client ./client
 COPY --from=builder /app/shared ./shared
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
+COPY --from=builder /app/vite.config.ts ./vite.config.ts
 # Copy .env from the build context (local root), not from builder
 COPY .env .env
 
