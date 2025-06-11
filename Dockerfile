@@ -14,6 +14,9 @@ COPY . .
 # Build the client and server
 RUN npm run build
 
+# Debug: List contents of dist directory
+RUN ls -la dist/ || echo "dist directory not found"
+
 # --- Production image ---
 FROM node:20-alpine as production
 WORKDIR /app
@@ -26,6 +29,9 @@ COPY --from=builder /app/server ./server
 COPY --from=builder /app/client ./client
 # Copy .env from the build context (local root), not from builder
 COPY .env .env
+
+# Debug: Check what files we actually have
+RUN ls -la . && ls -la dist/ || echo "dist directory missing"
 
 # Expose port (matching your .env PORT setting)
 EXPOSE 5000
