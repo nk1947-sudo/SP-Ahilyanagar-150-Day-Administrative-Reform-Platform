@@ -3,12 +3,12 @@ services:
   app:
     build: .
     ports:
-      - "3000:3000"
+      - "5000:5000"  # Match the port in your .env file
     env_file:
       - .env
     volumes:
-      - .:/app
-      - /app/node_modules
-    depends_on: []
+      - ./uploads:/app/uploads  # Persist uploads
     restart: unless-stopped
+    environment:
+      - NODE_ENV=production
 # Add database or other services as needed
