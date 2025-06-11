@@ -50,7 +50,7 @@ import {
   type InsertCustomFieldDefinition,
   type CustomFieldValue,
   type InsertCustomFieldValue,
-} from "@shared/schema";
+} from "../shared/schema.js";
 import { db, pool } from "./db";
 import { eq, desc, and, gte, lte, ilike, sql } from "drizzle-orm";
 import session from "express-session";
