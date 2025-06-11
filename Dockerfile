@@ -27,8 +27,8 @@ COPY --from=builder /app/client ./client
 # Copy .env from the build context (local root), not from builder
 COPY .env .env
 
-# Expose port (change if your app uses a different port)
-EXPOSE 3000
+# Expose port (matching your .env PORT setting)
+EXPOSE 5000
 
 # Start the app
 CMD ["node", "dist/index.js"]
