@@ -14,8 +14,13 @@ COPY . .
 # Build the client and server
 RUN npm run build
 
-# Debug: List contents of dist directory
-RUN ls -la dist/ || echo "dist directory not found"
+# Debug: Check build output
+RUN echo "Build completed, checking output..." && \
+    ls -la . && \
+    echo "Checking dist directory:" && \
+    ls -la dist/ || echo "dist directory not found" && \
+    echo "Checking for any .js files:" && \
+    find . -name "*.js" -type f || echo "No .js files found"
 
 # --- Production image ---
 FROM node:20-alpine as production
