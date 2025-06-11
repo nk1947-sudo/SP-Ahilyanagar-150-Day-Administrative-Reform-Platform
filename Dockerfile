@@ -24,7 +24,8 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/server ./server
 COPY --from=builder /app/client ./client
-COPY --from=builder /app/.env .env
+# Copy .env from the build context (local root), not from builder
+COPY .env .env
 
 # Expose port (change if your app uses a different port)
 EXPOSE 3000
