@@ -20,14 +20,16 @@ COPY --from=builder /app/package.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/server ./server
 COPY --from=builder /app/client ./client
+COPY --from=builder /app/shared ./shared
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
 # Copy .env from the build context (local root), not from builder
 COPY .env .env
 
 # Debug: Check what files we actually have
-RUN ls -la . && ls -la server/ || echo "server directory missing"
+RUN ls -la . && ls -la server/ && ls -la shared/ || echo "directories missing"
 
 # Expose port (matching your .env PORT setting)
 EXPOSE 5000
 
-# Start the app using tsx to run TypeScript directly
-CMD ["npx", "tsx", "server/index.ts"]
+# Start the app using tsx to run TypeScript directly with tsconfig path resolution
+CMD ["npx", "tsx", "--tsconfig", "tsconfig.json", "server/index.ts"]
