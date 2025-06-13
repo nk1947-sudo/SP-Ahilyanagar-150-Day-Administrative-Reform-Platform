@@ -1,0 +1,31 @@
+# This file defines code owners for different parts of the project
+# Code owners are automatically requested for review when someone opens a PR
+# that modifies code they own
+# For syntax details see: https://docs.github.com/en/github/creating-cloning-and-archiving-repositories/creating-a-repository-on-github/about-code-owners
+
+# Default owners for everything in the repo
+* @wildrex
+
+# Server owners
+/server/ @wildrex/backend-team
+/server/db.ts @wildrex/database-team
+/server/rbac.ts @wildrex/security-team
+/server/routes.ts @wildrex/api-team
+
+# Client owners
+/client/ @wildrex/frontend-team
+
+# Shared code
+/shared/ @wildrex/core-team
+
+# Infrastructure
+Dockerfile @wildrex/devops-team
+docker-compose.yml @wildrex/devops-team
+.env.example @wildrex/devops-team
+
+# Documentation
+/docs/ @wildrex/docs-team
+*.md @wildrex/docs-team
+
+# Scripts
+/scripts/ @wildrex/tools-team

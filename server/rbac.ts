@@ -1,25 +1,38 @@
+/**
+ * AhilyangarWorkflow Role-Based Access Control System
+ * 
+ * This module implements the role-based access control (RBAC) functionality
+ * for the AhilyangarWorkflow application. It provides permission checking,
+ * role assignment, and security level enforcement.
+ * 
+ * @module rbac
+ */
 import { RequestHandler } from "express";
 import { storage } from "./storage";
 
-// Permission definitions for SP Ahilyanagar system
+/**
+ * Permission definitions for SP Ahilyanagar system
+ * These constants define all available permissions in the system.
+ * Use the format "resource:action" for consistency.
+ */
 export const PERMISSIONS = {
   // System administration
-  SYSTEM_ADMIN: 'system:admin',
-  MANAGE_USERS: 'users:manage',
-  MANAGE_ROLES: 'roles:manage',
-  VIEW_AUDIT_LOGS: 'audit:view',
-  MANAGE_SETTINGS: 'settings:manage',
+  SYSTEM_ADMIN: 'system:admin',      // Full system administration rights
+  MANAGE_USERS: 'users:manage',      // Create, edit, delete users
+  MANAGE_ROLES: 'roles:manage',      // Assign, modify roles and permissions
+  VIEW_AUDIT_LOGS: 'audit:view',     // View system audit logs
+  MANAGE_SETTINGS: 'settings:manage', // Modify system-wide settings
   
   // Team management
-  MANAGE_TEAMS: 'teams:manage',
-  VIEW_TEAMS: 'teams:view',
+  MANAGE_TEAMS: 'teams:manage',      // Create, edit, delete teams
+  VIEW_TEAMS: 'teams:view',          // View team information
   
   // Task management
-  CREATE_TASKS: 'tasks:create',
-  EDIT_TASKS: 'tasks:edit',
-  DELETE_TASKS: 'tasks:delete',
-  VIEW_TASKS: 'tasks:view',
-  ASSIGN_TASKS: 'tasks:assign',
+  CREATE_TASKS: 'tasks:create',      // Create new tasks
+  EDIT_TASKS: 'tasks:edit',          // Edit existing tasks
+  DELETE_TASKS: 'tasks:delete',      // Delete tasks
+  VIEW_TASKS: 'tasks:view',          // View task information
+  ASSIGN_TASKS: 'tasks:assign',      // Assign tasks to users
   
   // Reports
   CREATE_REPORTS: 'reports:create',
